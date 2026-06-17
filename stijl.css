@@ -1,0 +1,237 @@
+/* ─── Basis ─────────────────────────────────────────────────────────────── */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    color: #0d2b40;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+/* ─── Golvende achtergrond ──────────────────────────────────────────────── */
+
+#golven-achtergrond {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    background: linear-gradient(180deg, #A9D6F3 0%, #7DBEEA 100%);
+}
+
+/* ─── Layout ─────────────────────────────────────────────────────────────── */
+
+.container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 20px 60px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 24px;
+    align-items: start;
+}
+
+.rechts-kolom {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+.sectie-titel {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #0d2b40;
+    opacity: 0.7;
+    margin: 28px 0 12px 4px;
+}
+
+/* ─── Huidig weer kaart ─────────────────────────────────────────────────── */
+
+.huidig-weer {
+    background: rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 28px;
+    padding: 28px 24px;
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(13, 43, 64, 0.12);
+}
+
+.locatie {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.tijd {
+    font-size: 13px;
+    opacity: 0.65;
+    margin-top: 2px;
+}
+
+.huidig-hoofd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 18px 0 4px;
+}
+
+.huidig-emoji {
+    font-size: 56px;
+    line-height: 1;
+}
+
+.huidig-temp {
+    font-size: 64px;
+    font-weight: 300;
+    line-height: 1;
+}
+
+.huidig-beschrijving {
+    font-size: 17px;
+    font-weight: 500;
+}
+
+.huidig-gevoel {
+    font-size: 14px;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+
+.huidig-details {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(13, 43, 64, 0.12);
+}
+
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.detail-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    opacity: 0.6;
+}
+
+.detail-waarde {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* ─── Uurlijkse rij ─────────────────────────────────────────────────────── */
+
+.uur-rij {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 4px 12px;
+    scrollbar-width: thin;
+    min-width: 0;
+}
+
+.uur-kaart {
+    flex: 0 0 auto;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 18px;
+    padding: 16px 14px;
+    text-align: center;
+    min-width: 68px;
+}
+
+.uur-tijd {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-bottom: 8px;
+}
+
+.uur-emoji {
+    font-size: 26px;
+    margin-bottom: 8px;
+}
+
+.uur-temp {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+/* ─── 7-daagse lijst ────────────────────────────────────────────────────── */
+
+.dag-lijst {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.dag-rij {
+    display: grid;
+    grid-template-columns: 90px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 16px;
+    padding: 14px 18px;
+}
+
+.dag-datum {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.dag-emoji {
+    font-size: 22px;
+    text-align: center;
+}
+
+.dag-min {
+    font-size: 14px;
+    opacity: 0.55;
+    text-align: right;
+}
+
+.dag-max {
+    font-size: 14px;
+    font-weight: 700;
+    text-align: right;
+}
+
+/* ─── Responsief ────────────────────────────────────────────────────────── */
+
+@media (max-width: 800px) {
+    .container {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 400px) {
+    .huidig-temp {
+        font-size: 52px;
+    }
+    .huidig-emoji {
+        font-size: 44px;
+    }
+    .dag-rij {
+        grid-template-columns: 76px 1fr auto auto;
+        padding: 12px 14px;
+    }
+}

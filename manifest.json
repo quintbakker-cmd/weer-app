@@ -1,0 +1,25 @@
+{
+  "name": "Weer Amersfoort",
+  "short_name": "Weer",
+  "description": "Actueel weer, uurlijkse en 7-daagse voorspelling voor Amersfoort",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#A9D6F3",
+  "theme_color": "#7DBEEA",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icoon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icoon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

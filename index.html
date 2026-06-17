@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#7DBEEA">
+    <title>Weer Amersfoort</title>
+    <link rel="stylesheet" href="stijl.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icoon-192.png">
+    <link rel="apple-touch-icon" href="icoon-192.png">
+</head>
+<body>
+
+    <canvas id="golven-achtergrond"></canvas>
+
+    <main class="container">
+
+        <!-- Huidig weer -->
+        <section class="huidig-weer" id="huidig-weer">
+            <p class="locatie">Amersfoort</p>
+            <p class="tijd" id="huidig-tijd">--</p>
+
+            <div class="huidig-hoofd">
+                <span class="huidig-emoji" id="huidig-emoji">--</span>
+                <span class="huidig-temp" id="huidig-temp">--°</span>
+            </div>
+
+            <p class="huidig-beschrijving" id="huidig-beschrijving">Laden...</p>
+            <p class="huidig-gevoel">Voelt als <span id="huidig-gevoel">--°</span></p>
+
+            <div class="huidig-details">
+                <div class="detail">
+                    <span class="detail-label">Regen</span>
+                    <span class="detail-waarde" id="huidig-regen">-- mm</span>
+                </div>
+                <div class="detail">
+                    <span class="detail-label">Buien</span>
+                    <span class="detail-waarde" id="huidig-buien">-- mm</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rechter kolom: uurlijks + 7-daags -->
+        <div class="rechts-kolom">
+
+            <!-- Uurlijkse voorspelling -->
+            <section class="uurlijks">
+                <h2 class="sectie-titel">Komende uren</h2>
+                <div class="uur-rij" id="uur-rij">
+                    <!-- wordt gevuld door JavaScript -->
+                </div>
+            </section>
+
+            <!-- 7-daagse voorspelling -->
+            <section class="dagelijks">
+                <h2 class="sectie-titel">7-daagse voorspelling</h2>
+                <div class="dag-lijst" id="dag-lijst">
+                    <!-- wordt gevuld door JavaScript -->
+                </div>
+            </section>
+
+        </div>
+
+    </main>
+
+    <script src="script.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("service-worker.js");
+            });
+        }
+    </script>
+</body>
+</html>
