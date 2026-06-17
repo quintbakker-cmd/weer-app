@@ -226,6 +226,17 @@ function startGolvenAnimatie() {
     resize();
 }
 
+// ─── Service worker updates ────────────────────────────────────────────────
+
+if ("serviceWorker" in navigator) {
+    let al_aan_het_verversen = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (al_aan_het_verversen) return;
+        al_aan_het_verversen = true;
+        window.location.reload();
+    });
+}
+
 // ─── Opstarten ─────────────────────────────────────────────────────────────
 
 async function init() {
