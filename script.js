@@ -149,6 +149,7 @@ function toonUurlijks(uurLijst) {
     const container = document.getElementById("uur-rij");
     container.innerHTML = "";
 
+    // Toon alleen de eerste 24 uur
     uurLijst.slice(0, 24).forEach(uur => {
         const kaart = document.createElement("div");
         kaart.className = "uur-kaart";
@@ -187,19 +188,16 @@ function startGolvenAnimatie() {
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        tekenGolven();
     }
-    resize();
-    window.addEventListener("resize", resize);
-
-    let tijd = 0;
 
     function tekenGolven() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         const golfBreedte = 120;
         const lagen = [
-            { alpha: 0.35, offsetY: 0, snelheid: 0.015 },
-            { alpha: 0.2, offsetY: 40, snelheid: 0.01 },
+            { alpha: 0.35, offsetY: 0 },
+            { alpha: 0.2, offsetY: 40 },
         ];
 
         lagen.forEach(laag => {
@@ -210,7 +208,7 @@ function startGolvenAnimatie() {
             while (y < canvas.height + 60) {
                 ctx.beginPath();
                 for (let x = -golfBreedte; x <= canvas.width + golfBreedte; x += 4) {
-                    const fase = (x / golfBreedte) * Math.PI * 2 + tijd * laag.snelheid * 100;
+                    const fase = (x / golfBreedte) * Math.PI * 2;
                     const gy = y + Math.sin(fase) * 18;
                     if (x === -golfBreedte) {
                         ctx.moveTo(x, gy);
@@ -222,12 +220,10 @@ function startGolvenAnimatie() {
                 y += 55;
             }
         });
-
-        tijd++;
-        requestAnimationFrame(tekenGolven);
     }
 
-    tekenGolven();
+    window.addEventListener("resize", resize);
+    resize();
 }
 
 // ─── Opstarten ─────────────────────────────────────────────────────────────
