@@ -1,8 +1,22 @@
 // ─── Instellingen ──────────────────────────────────────────────────────────
 
-const LATITUDE = 52.155;
-const LONGITUDE = 5.3875;
-const TIMEZONE = "Europe/Amsterdam";
+const STANDAARD_LOCATIE = {
+    naam: "Amersfoort",
+    latitude: 52.155,
+    longitude: 5.3875,
+    timezone: "Europe/Amsterdam",
+};
+
+// Probeer een eerder opgeslagen locatie te laden, anders gebruik de standaard
+let huidigeLocatie = STANDAARD_LOCATIE;
+const opgeslagenLocatie = localStorage.getItem("weerapp-locatie");
+if (opgeslagenLocatie) {
+    try {
+        huidigeLocatie = JSON.parse(opgeslagenLocatie);
+    } catch (fout) {
+        huidigeLocatie = STANDAARD_LOCATIE;
+    }
+}
 
 // ─── Weercodes → beschrijving + emoji ─────────────────────────────────────
 
@@ -60,9 +74,9 @@ function naarDatumTijdString(isoString) {
 
 async function haalWeerOp() {
     const url = new URL("https://api.open-meteo.com/v1/forecast");
-    url.searchParams.set("latitude", LATITUDE);
-    url.searchParams.set("longitude", LONGITUDE);
-    url.searchParams.set("timezone", TIMEZONE);
+    url.searchParams.set("latitude", huidigeLocatie.latitude);
+    url.searchParams.set("longitude", huidigeLocatie.longitude);
+    url.searchParams.set("timezone", huidigeLocatie.timezone);
     url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,rain_sum");
     url.searchParams.set("hourly", "temperature_2m,rain,showers,apparent_temperature,relative_humidity_2m,cloud_cover,weather_code");
     url.searchParams.set("current", "temperature_2m,apparent_temperature,rain,showers,weather_code");
@@ -72,6 +86,29 @@ async function haalWeerOp() {
         throw new Error(`API fout: ${response.status}`);
     }
     return response.json();
+}
+
+// ─── Locatie zoeken (geocoding) ─────────────────────────────────────────
+
+async function zoekLocaties(zoekterm) {
+    const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    url.searchParams.set("name", zoekterm);
+    url.searchParams.set("count", 5);
+    url.searchParams.set("language", "nl");
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Geocoding fout: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.results || [];
+}
+
+function veranderLocatie(nieuweLocatie) {
+    huidigeLocatie = nieuweLocatie;
+    localStorage.setItem("weerapp-locatie", JSON.stringify(nieuweLocatie));
+    document.getElementById("locatie-naam").textContent = nieuweLocatie.naam;
+    laadWeerData();
 }
 
 // ─── Data verwerken naar nette objecten ───────────────────────────────────
@@ -289,30 +326,7 @@ function startGolvenAnimatie() {
     resize();
 }
 
-// ─── Service worker updates ────────────────────────────────────────────────
-
-if ("serviceWorker" in navigator) {
-    let al_aan_het_verversen = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (al_aan_het_verversen) return;
-        al_aan_het_verversen = true;
-        window.location.reload();
-    });
-}
-
-// ─── Opstarten ─────────────────────────────────────────────────────────────
-
-async function init() {
-    startGolvenAnimatie();
-
-    // Sluit-knop en klik-buiten-overlay om te sluiten
-    document.getElementById("overlay-sluiten").addEventListener("click", verbergDagOverlay);
-    document.getElementById("dag-overlay").addEventListener("click", (event) => {
-        if (event.target.id === "dag-overlay") {
-            verbergDagOverlay();
-        }
-    });
-
+async function laadWeerData() {
     try {
         const data = await haalWeerOp();
         const huidig = parseHuidig(data);
@@ -327,6 +341,110 @@ async function init() {
         console.error("Kon weerdata niet ophalen:", fout);
         document.getElementById("huidig-beschrijving").textContent = "Kon weer niet laden";
     }
+}
+
+// ─── Locatie overlay bediening ──────────────────────────────────────────
+
+function toonLocatieOverlay() {
+    document.getElementById("locatie-overlay").classList.add("zichtbaar");
+    document.getElementById("locatie-input").value = "";
+    document.getElementById("locatie-resultaten").innerHTML = "";
+    document.getElementById("locatie-input").focus();
+}
+
+function verbergLocatieOverlay() {
+    document.getElementById("locatie-overlay").classList.remove("zichtbaar");
+}
+
+let zoekTimer = null;
+
+function opZoekInput(event) {
+    const zoekterm = event.target.value.trim();
+    clearTimeout(zoekTimer);
+
+    if (zoekterm.length < 2) {
+        document.getElementById("locatie-resultaten").innerHTML = "";
+        return;
+    }
+
+    // Wacht even na het typen voordat we daadwerkelijk zoeken (debounce),
+    // zodat we niet bij elke toetsaanslag een aanvraag versturen
+    zoekTimer = setTimeout(async () => {
+        const resultatenContainer = document.getElementById("locatie-resultaten");
+        resultatenContainer.innerHTML = `<p class="locatie-melding">Zoeken...</p>`;
+
+        try {
+            const resultaten = await zoekLocaties(zoekterm);
+
+            if (resultaten.length === 0) {
+                resultatenContainer.innerHTML = `<p class="locatie-melding">Geen plaatsen gevonden</p>`;
+                return;
+            }
+
+            resultatenContainer.innerHTML = "";
+            resultaten.forEach(plaats => {
+                const knop = document.createElement("button");
+                knop.className = "locatie-resultaat";
+                knop.innerHTML = `
+                    ${plaats.name}
+                    <span class="locatie-resultaat-land">${plaats.admin1 ? plaats.admin1 + ", " : ""}${plaats.country || ""}</span>
+                `;
+                knop.addEventListener("click", () => {
+                    veranderLocatie({
+                        naam: plaats.name,
+                        latitude: plaats.latitude,
+                        longitude: plaats.longitude,
+                        timezone: plaats.timezone,
+                    });
+                    verbergLocatieOverlay();
+                });
+                resultatenContainer.appendChild(knop);
+            });
+        } catch (fout) {
+            console.error("Kon locaties niet zoeken:", fout);
+            resultatenContainer.innerHTML = `<p class="locatie-melding">Zoeken mislukt</p>`;
+        }
+    }, 400);
+}
+
+// ─── Service worker updates ────────────────────────────────────────────────
+
+if ("serviceWorker" in navigator) {
+    let al_aan_het_verversen = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (al_aan_het_verversen) return;
+        al_aan_het_verversen = true;
+        window.location.reload();
+    });
+}
+
+// ─── Opstarten ─────────────────────────────────────────────────────────────
+
+function init() {
+    startGolvenAnimatie();
+
+    // Toon de opgeslagen of standaard locatie-naam direct
+    document.getElementById("locatie-naam").textContent = huidigeLocatie.naam;
+
+    // Sluit-knop en klik-buiten-overlay om dag-overlay te sluiten
+    document.getElementById("overlay-sluiten").addEventListener("click", verbergDagOverlay);
+    document.getElementById("dag-overlay").addEventListener("click", (event) => {
+        if (event.target.id === "dag-overlay") {
+            verbergDagOverlay();
+        }
+    });
+
+    // Locatie-overlay bediening
+    document.getElementById("locatie-knop").addEventListener("click", toonLocatieOverlay);
+    document.getElementById("locatie-overlay-sluiten").addEventListener("click", verbergLocatieOverlay);
+    document.getElementById("locatie-overlay").addEventListener("click", (event) => {
+        if (event.target.id === "locatie-overlay") {
+            verbergLocatieOverlay();
+        }
+    });
+    document.getElementById("locatie-input").addEventListener("input", opZoekInput);
+
+    laadWeerData();
 }
 
 init();

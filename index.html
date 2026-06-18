@@ -18,7 +18,10 @@
 
         <!-- Huidig weer -->
         <section class="huidig-weer" id="huidig-weer">
-            <p class="locatie">Amersfoort</p>
+            <button class="locatie-knop" id="locatie-knop">
+                <span class="locatie" id="locatie-naam">Amersfoort</span>
+                <span class="locatie-potlood">✎</span>
+            </button>
             <p class="tijd" id="huidig-tijd">--</p>
 
             <div class="huidig-hoofd">
@@ -63,6 +66,25 @@
         </div>
 
     </main>
+
+    <!-- Locatie zoeken overlay -->
+    <div class="overlay" id="locatie-overlay">
+        <div class="overlay-kaart locatie-overlay-kaart">
+            <button class="overlay-sluiten" id="locatie-overlay-sluiten">✕</button>
+
+            <h3 class="overlay-subtitel" style="margin-top: 0;">Locatie wijzigen</h3>
+            <input
+                type="text"
+                id="locatie-input"
+                class="locatie-input"
+                placeholder="Typ een plaatsnaam, bijv. Utrecht"
+                autocomplete="off"
+            >
+            <div class="locatie-resultaten" id="locatie-resultaten">
+                <!-- wordt gevuld door JavaScript -->
+            </div>
+        </div>
+    </div>
 
     <!-- Dag detail overlay -->
     <div class="overlay" id="dag-overlay">
