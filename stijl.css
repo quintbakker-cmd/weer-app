@@ -191,6 +191,12 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.45);
     border-radius: 16px;
     padding: 14px 18px;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.dag-rij:hover {
+    transform: scale(1.01);
 }
 
 .dag-datum {
@@ -213,6 +219,114 @@ body {
     font-size: 14px;
     font-weight: 700;
     text-align: right;
+}
+
+/* ─── Dag detail overlay ────────────────────────────────────────────────── */
+
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(13, 43, 64, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease;
+    z-index: 100;
+}
+
+.overlay.zichtbaar {
+    opacity: 1;
+    visibility: visible;
+}
+
+.overlay-kaart {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 28px;
+    padding: 32px 28px;
+    max-width: 480px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(13, 43, 64, 0.25);
+}
+
+.overlay-sluiten {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(13, 43, 64, 0.1);
+    color: #0d2b40;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.overlay-datum {
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.overlay-hoofd {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin: 14px 0 4px;
+}
+
+.overlay-emoji {
+    font-size: 48px;
+}
+
+.overlay-temp {
+    font-size: 48px;
+    font-weight: 300;
+}
+
+.overlay-beschrijving {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 18px;
+}
+
+.overlay-details {
+    display: flex;
+    justify-content: space-around;
+    gap: 12px;
+    padding: 16px 0;
+    border-top: 1px solid rgba(13, 43, 64, 0.12);
+    border-bottom: 1px solid rgba(13, 43, 64, 0.12);
+}
+
+.overlay-subtitel {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin: 20px 0 10px 2px;
+}
+
+.overlay-uren {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 4px 4px 8px;
+    min-width: 0;
 }
 
 /* ─── Responsief ────────────────────────────────────────────────────────── */

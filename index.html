@@ -64,6 +64,40 @@
 
     </main>
 
+    <!-- Dag detail overlay -->
+    <div class="overlay" id="dag-overlay">
+        <div class="overlay-kaart">
+            <button class="overlay-sluiten" id="overlay-sluiten">✕</button>
+
+            <p class="overlay-datum" id="overlay-datum">--</p>
+            <div class="overlay-hoofd">
+                <span class="overlay-emoji" id="overlay-emoji">--</span>
+                <span class="overlay-temp" id="overlay-temp">--°</span>
+            </div>
+            <p class="overlay-beschrijving" id="overlay-beschrijving">--</p>
+
+            <div class="overlay-details">
+                <div class="detail">
+                    <span class="detail-label">Zonsopgang</span>
+                    <span class="detail-waarde" id="overlay-zonsopgang">--:--</span>
+                </div>
+                <div class="detail">
+                    <span class="detail-label">Zonsondergang</span>
+                    <span class="detail-waarde" id="overlay-zonsondergang">--:--</span>
+                </div>
+                <div class="detail">
+                    <span class="detail-label">Regen totaal</span>
+                    <span class="detail-waarde" id="overlay-regen">-- mm</span>
+                </div>
+            </div>
+
+            <h3 class="overlay-subtitel">Uurlijks overzicht</h3>
+            <div class="overlay-uren" id="overlay-uren">
+                <!-- wordt gevuld door JavaScript -->
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
     <script>
         if ("serviceWorker" in navigator) {

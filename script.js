@@ -113,6 +113,28 @@ function parseUurlijks(data) {
     return uurLijst;
 }
 
+function parseAlleUren(data) {
+    // Net als parseUurlijks, maar zonder uren uit het verleden te filteren.
+    // Dit hebben we nodig om per dag het volledige uurlijkse overzicht te tonen
+    // in de dag-detail overlay.
+    const h = data.hourly;
+
+    const uurLijst = [];
+    for (let i = 0; i < h.time.length; i++) {
+        uurLijst.push({
+            tijdISO: h.time[i],
+            tijd: naarUurString(h.time[i]),
+            temperatuur: Math.round(h.temperature_2m[i] * 10) / 10,
+            gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
+            regen: Math.round(h.rain[i] * 10) / 10,
+            buien: Math.round(h.showers[i] * 10) / 10,
+            luchtvochtigheid: Math.round(h.relative_humidity_2m[i]),
+            bewolking: Math.round(h.cloud_cover[i]),
+        });
+    }
+    return uurLijst;
+}
+
 function parseDagelijks(data) {
     const d = data.daily;
 
@@ -120,6 +142,7 @@ function parseDagelijks(data) {
     for (let i = 0; i < d.time.length; i++) {
         const [beschrijving, emoji] = weercodeInfo(d.weather_code[i]);
         dagLijst.push({
+            datumISO: d.time[i],
             datum: naarDagString(d.time[i]),
             maxTemp: Math.round(d.temperature_2m_max[i] * 10) / 10,
             minTemp: Math.round(d.temperature_2m_min[i] * 10) / 10,
@@ -162,7 +185,7 @@ function toonUurlijks(uurLijst) {
     });
 }
 
-function toonDagelijks(dagLijst) {
+function toonDagelijks(dagLijst, alleUren) {
     const container = document.getElementById("dag-lijst");
     container.innerHTML = "";
 
@@ -175,8 +198,44 @@ function toonDagelijks(dagLijst) {
             <div class="dag-min">${dag.minTemp}°</div>
             <div class="dag-max">${dag.maxTemp}°</div>
         `;
+        rij.addEventListener("click", () => toonDagOverlay(dag, alleUren));
         container.appendChild(rij);
     });
+}
+
+// ─── Dag detail overlay ─────────────────────────────────────────────────
+
+function toonDagOverlay(dag, alleUren) {
+    document.getElementById("overlay-datum").textContent = dag.datum;
+    document.getElementById("overlay-emoji").textContent = dag.emoji;
+    document.getElementById("overlay-temp").textContent = `${dag.minTemp}° / ${dag.maxTemp}°`;
+    document.getElementById("overlay-beschrijving").textContent = dag.beschrijving;
+    document.getElementById("overlay-zonsopgang").textContent = dag.zonsopgang;
+    document.getElementById("overlay-zonsondergang").textContent = dag.zonsondergang;
+    document.getElementById("overlay-regen").textContent = `${dag.regenSom} mm`;
+
+    // Filter de uren die bij deze dag horen (zelfde datum, voor de "T")
+    const dagDatum = dag.datumISO.split("T")[0];
+    const urenVanDeDag = alleUren.filter(uur => uur.tijdISO.split("T")[0] === dagDatum);
+
+    const urenContainer = document.getElementById("overlay-uren");
+    urenContainer.innerHTML = "";
+    urenVanDeDag.forEach(uur => {
+        const kaart = document.createElement("div");
+        kaart.className = "uur-kaart";
+        kaart.innerHTML = `
+            <div class="uur-tijd">${uur.tijd}</div>
+            <div class="uur-emoji">${uur.bewolking > 50 ? "☁️" : "☀️"}</div>
+            <div class="uur-temp">${uur.temperatuur}°</div>
+        `;
+        urenContainer.appendChild(kaart);
+    });
+
+    document.getElementById("dag-overlay").classList.add("zichtbaar");
+}
+
+function verbergDagOverlay() {
+    document.getElementById("dag-overlay").classList.remove("zichtbaar");
 }
 
 // ─── Golvende achtergrond animatie ─────────────────────────────────────────
@@ -242,15 +301,24 @@ if ("serviceWorker" in navigator) {
 async function init() {
     startGolvenAnimatie();
 
+    // Sluit-knop en klik-buiten-overlay om te sluiten
+    document.getElementById("overlay-sluiten").addEventListener("click", verbergDagOverlay);
+    document.getElementById("dag-overlay").addEventListener("click", (event) => {
+        if (event.target.id === "dag-overlay") {
+            verbergDagOverlay();
+        }
+    });
+
     try {
         const data = await haalWeerOp();
         const huidig = parseHuidig(data);
         const uurlijks = parseUurlijks(data);
         const dagelijks = parseDagelijks(data);
+        const alleUren = parseAlleUren(data);
 
         toonHuidig(huidig);
         toonUurlijks(uurlijks);
-        toonDagelijks(dagelijks);
+        toonDagelijks(dagelijks, alleUren);
     } catch (fout) {
         console.error("Kon weerdata niet ophalen:", fout);
         document.getElementById("huidig-beschrijving").textContent = "Kon weer niet laden";
