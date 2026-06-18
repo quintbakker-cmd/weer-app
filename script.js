@@ -64,7 +64,7 @@ async function haalWeerOp() {
     url.searchParams.set("longitude", LONGITUDE);
     url.searchParams.set("timezone", TIMEZONE);
     url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,rain_sum");
-    url.searchParams.set("hourly", "temperature_2m,rain,showers,apparent_temperature,relative_humidity_2m,cloud_cover");
+    url.searchParams.set("hourly", "temperature_2m,rain,showers,apparent_temperature,relative_humidity_2m,cloud_cover,weather_code");
     url.searchParams.set("current", "temperature_2m,apparent_temperature,rain,showers,weather_code");
 
     const response = await fetch(url);
@@ -108,6 +108,7 @@ function parseUurlijks(data) {
             buien: Math.round(h.showers[i] * 10) / 10,
             luchtvochtigheid: Math.round(h.relative_humidity_2m[i]),
             bewolking: Math.round(h.cloud_cover[i]),
+            weercode: h.weather_code[i],
         });
     }
     return uurLijst;
@@ -130,6 +131,7 @@ function parseAlleUren(data) {
             buien: Math.round(h.showers[i] * 10) / 10,
             luchtvochtigheid: Math.round(h.relative_humidity_2m[i]),
             bewolking: Math.round(h.cloud_cover[i]),
+            weercode: h.weather_code[i],
         });
     }
     return uurLijst;
@@ -174,11 +176,12 @@ function toonUurlijks(uurLijst) {
 
     // Toon alleen de eerste 24 uur
     uurLijst.slice(0, 24).forEach(uur => {
+        const [, emoji] = weercodeInfo(uur.weercode);
         const kaart = document.createElement("div");
         kaart.className = "uur-kaart";
         kaart.innerHTML = `
             <div class="uur-tijd">${uur.tijd}</div>
-            <div class="uur-emoji">${uur.bewolking > 50 ? "☁️" : "☀️"}</div>
+            <div class="uur-emoji">${emoji}</div>
             <div class="uur-temp">${uur.temperatuur}°</div>
         `;
         container.appendChild(kaart);
@@ -221,11 +224,12 @@ function toonDagOverlay(dag, alleUren) {
     const urenContainer = document.getElementById("overlay-uren");
     urenContainer.innerHTML = "";
     urenVanDeDag.forEach(uur => {
+        const [, emoji] = weercodeInfo(uur.weercode);
         const kaart = document.createElement("div");
         kaart.className = "uur-kaart";
         kaart.innerHTML = `
             <div class="uur-tijd">${uur.tijd}</div>
-            <div class="uur-emoji">${uur.bewolking > 50 ? "☁️" : "☀️"}</div>
+            <div class="uur-emoji">${emoji}</div>
             <div class="uur-temp">${uur.temperatuur}°</div>
         `;
         urenContainer.appendChild(kaart);
