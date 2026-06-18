@@ -21,34 +21,37 @@ if (opgeslagenLocatie) {
 // ─── Weercodes → beschrijving + emoji ─────────────────────────────────────
 
 const WEERCODES = {
-    0:  ["Heldere hemel", "☀️"],
-    1:  ["Overwegend helder", "🌤️"],
-    2:  ["Gedeeltelijk bewolkt", "⛅"],
-    3:  ["Bewolkt", "☁️"],
-    45: ["Mist", "🌫️"],
-    48: ["IJsmist", "🌫️"],
-    51: ["Lichte miezer", "🌦️"],
-    53: ["Matige miezer", "🌦️"],
-    55: ["Zware miezer", "🌧️"],
-    61: ["Lichte regen", "🌧️"],
-    63: ["Matige regen", "🌧️"],
-    65: ["Zware regen", "🌧️"],
-    71: ["Lichte sneeuw", "🌨️"],
-    73: ["Matige sneeuw", "🌨️"],
-    75: ["Zware sneeuw", "❄️"],
-    77: ["Ijskorrels", "🌨️"],
-    80: ["Lichte buien", "🌦️"],
-    81: ["Matige buien", "🌧️"],
-    82: ["Zware buien", "⛈️"],
-    85: ["Lichte sneeuwbuien", "🌨️"],
-    86: ["Zware sneeuwbuien", "❄️"],
-    95: ["Onweer", "⛈️"],
-    96: ["Onweer met hagel", "⛈️"],
-    99: ["Zwaar onweer met hagel", "⛈️"],
+    0:  ["Heldere hemel",           "☀️", "🌙"],
+    1:  ["Overwegend helder",        "🌤️", "🌙"],
+    2:  ["Gedeeltelijk bewolkt",     "⛅",  "☁️"],
+    3:  ["Bewolkt",                  "☁️",  "☁️"],
+    45: ["Mist",                     "🌫️", "🌫️"],
+    48: ["IJsmist",                  "🌫️", "🌫️"],
+    51: ["Lichte miezer",            "🌦️", "🌧️"],
+    53: ["Matige miezer",            "🌦️", "🌧️"],
+    55: ["Zware miezer",             "🌧️", "🌧️"],
+    61: ["Lichte regen",             "🌧️", "🌧️"],
+    63: ["Matige regen",             "🌧️", "🌧️"],
+    65: ["Zware regen",              "🌧️", "🌧️"],
+    71: ["Lichte sneeuw",            "🌨️", "🌨️"],
+    73: ["Matige sneeuw",            "🌨️", "🌨️"],
+    75: ["Zware sneeuw",             "❄️",  "❄️"],
+    77: ["Ijskorrels",               "🌨️", "🌨️"],
+    80: ["Lichte buien",             "🌦️", "🌧️"],
+    81: ["Matige buien",             "🌧️", "🌧️"],
+    82: ["Zware buien",              "⛈️",  "⛈️"],
+    85: ["Lichte sneeuwbuien",       "🌨️", "🌨️"],
+    86: ["Zware sneeuwbuien",        "❄️",  "❄️"],
+    95: ["Onweer",                   "⛈️",  "⛈️"],
+    96: ["Onweer met hagel",         "⛈️",  "⛈️"],
+    99: ["Zwaar onweer met hagel",   "⛈️",  "⛈️"],
 };
 
-function weercodeInfo(code) {
-    return WEERCODES[code] || ["Onbekend", "❓"];
+function weercodeInfo(code, isNacht = false) {
+    const weercode = WEERCODES[code] || ["Onbekend", "❓", "🌙"];
+    const beschrijving = weercode[0];
+    const emoji = isNacht ? weercode[2] : weercode[1];
+    return [beschrijving, emoji];
 }
 
 // ─── Tijd helpers ──────────────────────────────────────────────────────────
@@ -130,45 +133,75 @@ function parseHuidig(data) {
 
 function parseUurlijks(data) {
     const h = data.hourly;
+    const d = data.daily;
     const nu = new Date();
+
+    // Bouw een snelle opzoektabel: datum-string → { opgang, ondergang } als timestamps
+    const zontijden = {};
+    for (let i = 0; i < d.time.length; i++) {
+        zontijden[d.time[i]] = {
+            opgang:     new Date(d.sunrise[i]).getTime(),
+            ondergang:  new Date(d.sunset[i]).getTime(),
+        };
+    }
 
     const uurLijst = [];
     for (let i = 0; i < h.time.length; i++) {
         const tijdstip = new Date(h.time[i]);
-        if (tijdstip < nu) continue; // sla verleden uren over
+        if (tijdstip < nu) continue;
+
+        const dagDatum = h.time[i].split("T")[0];
+        const zon = zontijden[dagDatum];
+        const ts = tijdstip.getTime();
+        const isNacht = zon ? (ts < zon.opgang || ts >= zon.ondergang) : false;
 
         uurLijst.push({
-            tijd: naarUurString(h.time[i]),
-            temperatuur: Math.round(h.temperature_2m[i] * 10) / 10,
+            tijd:               naarUurString(h.time[i]),
+            temperatuur:        Math.round(h.temperature_2m[i] * 10) / 10,
             gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
-            regen: Math.round(h.rain[i] * 10) / 10,
-            buien: Math.round(h.showers[i] * 10) / 10,
-            luchtvochtigheid: Math.round(h.relative_humidity_2m[i]),
-            bewolking: Math.round(h.cloud_cover[i]),
-            weercode: h.weather_code[i],
+            regen:              Math.round(h.rain[i] * 10) / 10,
+            buien:              Math.round(h.showers[i] * 10) / 10,
+            luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
+            bewolking:          Math.round(h.cloud_cover[i]),
+            weercode:           h.weather_code[i],
+            isNacht,
         });
     }
     return uurLijst;
 }
 
 function parseAlleUren(data) {
-    // Net als parseUurlijks, maar zonder uren uit het verleden te filteren.
-    // Dit hebben we nodig om per dag het volledige uurlijkse overzicht te tonen
-    // in de dag-detail overlay.
     const h = data.hourly;
+    const d = data.daily;
+
+    // Zelfde opzoektabel als hierboven
+    const zontijden = {};
+    for (let i = 0; i < d.time.length; i++) {
+        zontijden[d.time[i]] = {
+            opgang:     new Date(d.sunrise[i]).getTime(),
+            ondergang:  new Date(d.sunset[i]).getTime(),
+        };
+    }
 
     const uurLijst = [];
     for (let i = 0; i < h.time.length; i++) {
+        const tijdstip = new Date(h.time[i]);
+        const dagDatum = h.time[i].split("T")[0];
+        const zon = zontijden[dagDatum];
+        const ts = tijdstip.getTime();
+        const isNacht = zon ? (ts < zon.opgang || ts >= zon.ondergang) : false;
+
         uurLijst.push({
-            tijdISO: h.time[i],
-            tijd: naarUurString(h.time[i]),
-            temperatuur: Math.round(h.temperature_2m[i] * 10) / 10,
+            tijdISO:            h.time[i],
+            tijd:               naarUurString(h.time[i]),
+            temperatuur:        Math.round(h.temperature_2m[i] * 10) / 10,
             gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
-            regen: Math.round(h.rain[i] * 10) / 10,
-            buien: Math.round(h.showers[i] * 10) / 10,
-            luchtvochtigheid: Math.round(h.relative_humidity_2m[i]),
-            bewolking: Math.round(h.cloud_cover[i]),
-            weercode: h.weather_code[i],
+            regen:              Math.round(h.rain[i] * 10) / 10,
+            buien:              Math.round(h.showers[i] * 10) / 10,
+            luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
+            bewolking:          Math.round(h.cloud_cover[i]),
+            weercode:           h.weather_code[i],
+            isNacht,
         });
     }
     return uurLijst;
@@ -213,9 +246,9 @@ function toonUurlijks(uurLijst) {
 
     // Toon alleen de eerste 24 uur
     uurLijst.slice(0, 24).forEach(uur => {
-        const [, emoji] = weercodeInfo(uur.weercode);
+        const [, emoji] = weercodeInfo(uur.weercode, uur.isNacht);
         const kaart = document.createElement("div");
-        kaart.className = "uur-kaart";
+        kaart.className = "uur-kaart" + (uur.isNacht ? " uur-kaart-nacht" : "");
         kaart.innerHTML = `
             <div class="uur-tijd">${uur.tijd}</div>
             <div class="uur-emoji">${emoji}</div>
@@ -261,9 +294,9 @@ function toonDagOverlay(dag, alleUren) {
     const urenContainer = document.getElementById("overlay-uren");
     urenContainer.innerHTML = "";
     urenVanDeDag.forEach(uur => {
-        const [, emoji] = weercodeInfo(uur.weercode);
+        const [, emoji] = weercodeInfo(uur.weercode, uur.isNacht);
         const kaart = document.createElement("div");
-        kaart.className = "uur-kaart";
+        kaart.className = "uur-kaart" + (uur.isNacht ? " uur-kaart-nacht" : "");
         kaart.innerHTML = `
             <div class="uur-tijd">${uur.tijd}</div>
             <div class="uur-emoji">${emoji}</div>
