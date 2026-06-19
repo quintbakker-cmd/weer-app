@@ -195,31 +195,21 @@ function veranderLocatie(nieuweLocatie) {
 
 function parseHuidig(data) {
     const c = data.current;
-    const h = data.hourly;
     const nu = new Date();
 
-    // Zoek het hourly-datapunt dat het dichtst bij het huidige moment ligt.
-    // De "current" data van de API kan soms een kwartier verlopen zijn,
-    // het hourly-overzicht is net zo vers maar net iets directer te matchen.
-    let dichtstbijIndex = 0;
-    let kleinsteVerschil = Infinity;
-    for (let i = 0; i < h.time.length; i++) {
-        const verschil = Math.abs(new Date(h.time[i]).getTime() - nu.getTime());
-        if (verschil < kleinsteVerschil) {
-            kleinsteVerschil = verschil;
-            dichtstbijIndex = i;
-        }
-    }
-
-    const weercode = h.weather_code[dichtstbijIndex];
-    const [beschrijving, emoji] = weercodeInfo(weercode);
+    // We gebruiken hier bewust de "current" data van de API voor het
+    // weerbeeld (weather_code, regen, buien) — dit is de meest actuele
+    // live-waarneming. De hourly-voorspelling wordt namelijk pas per uur
+    // bijgewerkt en kan dus achterlopen bij snel veranderend weer
+    // (bijvoorbeeld als er plotseling onweer opsteekt).
+    const [beschrijving, emoji] = weercodeInfo(c.weather_code);
 
     return {
         tijd: naarDatumTijdString(nu.toISOString()),
         temperatuur: Math.round(c.temperature_2m * 10) / 10,
         gevoelstemperatuur: Math.round(c.apparent_temperature * 10) / 10,
-        regen: Math.round(h.rain[dichtstbijIndex] * 10) / 10,
-        buien: Math.round(h.showers[dichtstbijIndex] * 10) / 10,
+        regen: Math.round(c.rain * 10) / 10,
+        buien: Math.round(c.showers * 10) / 10,
         beschrijving,
         emoji,
     };
