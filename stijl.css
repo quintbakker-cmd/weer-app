@@ -25,6 +25,19 @@ body {
     background: linear-gradient(180deg, #A9D6F3 0%, #7DBEEA 100%);
 }
 
+/* ─── Versie label ──────────────────────────────────────────────────────── */
+
+.versie-label {
+    position: fixed;
+    top: 10px;
+    left: 14px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0d2b40;
+    opacity: 0.45;
+    z-index: 10;
+}
+
 /* ─── Layout ─────────────────────────────────────────────────────────────── */
 
 .container {
