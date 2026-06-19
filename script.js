@@ -84,7 +84,7 @@ async function haalWeerOp() {
     url.searchParams.set("longitude", huidigeLocatie.longitude);
     url.searchParams.set("timezone", huidigeLocatie.timezone);
     url.searchParams.set("daily", "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,rain_sum");
-    url.searchParams.set("hourly", "temperature_2m,rain,showers,apparent_temperature,relative_humidity_2m,cloud_cover,weather_code");
+    url.searchParams.set("hourly", "temperature_2m,rain,showers,apparent_temperature,relative_humidity_2m,cloud_cover,weather_code,precipitation_probability");
     url.searchParams.set("current", "temperature_2m,apparent_temperature,rain,showers,weather_code");
 
     const response = await fetch(url);
@@ -195,6 +195,7 @@ function veranderLocatie(nieuweLocatie) {
 
 function parseHuidig(data) {
     const c = data.current;
+    const h = data.hourly;
     const nu = new Date();
 
     // We gebruiken hier bewust de "current" data van de API voor het
@@ -204,12 +205,26 @@ function parseHuidig(data) {
     // (bijvoorbeeld als er plotseling onweer opsteekt).
     const [beschrijving, emoji] = weercodeInfo(c.weather_code);
 
+    // Neerslagkans bestaat alleen in de hourly-data, niet in current.
+    // We pakken hiervoor het dichtstbijzijnde uur.
+    let dichtstbijIndex = 0;
+    let kleinsteVerschil = Infinity;
+    for (let i = 0; i < h.time.length; i++) {
+        const verschil = Math.abs(new Date(h.time[i]).getTime() - nu.getTime());
+        if (verschil < kleinsteVerschil) {
+            kleinsteVerschil = verschil;
+            dichtstbijIndex = i;
+        }
+    }
+    const neerslagkans = h.precipitation_probability[dichtstbijIndex];
+
     return {
         tijd: naarDatumTijdString(nu.toISOString()),
         temperatuur: Math.round(c.temperature_2m * 10) / 10,
         gevoelstemperatuur: Math.round(c.apparent_temperature * 10) / 10,
         regen: Math.round(c.rain * 10) / 10,
         buien: Math.round(c.showers * 10) / 10,
+        neerslagkans,
         beschrijving,
         emoji,
     };
@@ -248,6 +263,7 @@ function parseUurlijks(data) {
             luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
             bewolking:          Math.round(h.cloud_cover[i]),
             weercode:           h.weather_code[i],
+            neerslagkans:       h.precipitation_probability[i],
             isNacht,
         });
     }
@@ -285,6 +301,7 @@ function parseAlleUren(data) {
             luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
             bewolking:          Math.round(h.cloud_cover[i]),
             weercode:           h.weather_code[i],
+            neerslagkans:       h.precipitation_probability[i],
             isNacht,
         });
     }
@@ -322,6 +339,7 @@ function toonHuidig(huidig) {
     document.getElementById("huidig-gevoel").textContent = `${huidig.gevoelstemperatuur}°`;
     document.getElementById("huidig-regen").textContent = `${huidig.regen} mm`;
     document.getElementById("huidig-buien").textContent = `${huidig.buien} mm`;
+    document.getElementById("huidig-neerslagkans").textContent = `${huidig.neerslagkans}%`;
 }
 
 function toonPollenHuidig(pollenTotaal) {
@@ -342,6 +360,7 @@ function toonUurlijks(uurLijst) {
             <div class="uur-tijd">${uur.tijd}</div>
             <div class="uur-emoji">${emoji}</div>
             <div class="uur-temp">${uur.temperatuur}°</div>
+            ${uur.neerslagkans > 0 ? `<div class="uur-neerslagkans">💧 ${uur.neerslagkans}%</div>` : ""}
         `;
         container.appendChild(kaart);
     });
@@ -398,6 +417,7 @@ function toonDagOverlay(dag, alleUren) {
             <div class="uur-tijd">${uur.tijd}</div>
             <div class="uur-emoji">${emoji}</div>
             <div class="uur-temp">${uur.temperatuur}°</div>
+            ${uur.neerslagkans > 0 ? `<div class="uur-neerslagkans">💧 ${uur.neerslagkans}%</div>` : ""}
         `;
         urenContainer.appendChild(kaart);
     });
