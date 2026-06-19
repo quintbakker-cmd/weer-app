@@ -178,7 +178,8 @@ body {
 .huidig-details {
     display: flex;
     justify-content: center;
-    gap: 32px;
+    flex-wrap: wrap;
+    gap: 20px 28px;
     margin-top: 20px;
     padding-top: 18px;
     border-top: 1px solid rgba(13, 43, 64, 0.12);
@@ -232,7 +233,6 @@ body {
     opacity: 0.7;
     margin-bottom: 8px;
 }
-
 
 .uur-emoji {
     font-size: 26px;
@@ -377,7 +377,8 @@ body {
 .overlay-details {
     display: flex;
     justify-content: space-around;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 14px 12px;
     padding: 16px 0;
     border-top: 1px solid rgba(13, 43, 64, 0.12);
     border-bottom: 1px solid rgba(13, 43, 64, 0.12);

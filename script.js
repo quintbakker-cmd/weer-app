@@ -18,6 +18,9 @@ if (opgeslagenLocatie) {
     }
 }
 
+// Bewaart de laatst opgehaalde pollendata zodat de dag-overlay deze ook kan gebruiken
+let huidigePollenPerUur = null;
+
 // ─── Weercodes → beschrijving + emoji ─────────────────────────────────────
 
 const WEERCODES = {
@@ -91,6 +94,80 @@ async function haalWeerOp() {
     return response.json();
 }
 
+// ─── Pollen data ophalen ─────────────────────────────────────────────────
+
+async function haalPollenOp() {
+    const url = new URL("https://air-quality-api.open-meteo.com/v1/air-quality");
+    url.searchParams.set("latitude", huidigeLocatie.latitude);
+    url.searchParams.set("longitude", huidigeLocatie.longitude);
+    url.searchParams.set("timezone", huidigeLocatie.timezone);
+    url.searchParams.set("hourly", "alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen");
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Pollen API fout: ${response.status}`);
+    }
+    return response.json();
+}
+
+// Grenzen gebaseerd op gangbare Europese pollen-indexen (grove benadering,
+// pollensoorten verschillen in gevoeligheid maar dit geeft een redelijk algemeen beeld)
+function pollenNiveau(totaal) {
+    if (totaal === null || totaal === undefined || Number.isNaN(totaal)) {
+        return { label: "Onbekend", emoji: "❓" };
+    }
+    if (totaal < 10)  return { label: "Laag", emoji: "🟢" };
+    if (totaal < 30)  return { label: "Matig", emoji: "🟡" };
+    if (totaal < 70)  return { label: "Hoog", emoji: "🟠" };
+    return { label: "Zeer hoog", emoji: "🔴" };
+}
+
+function parsePollenPerUur(pollenData) {
+    const h = pollenData.hourly;
+    const soorten = ["alder_pollen", "birch_pollen", "grass_pollen", "mugwort_pollen", "olive_pollen", "ragweed_pollen"];
+
+    const totalenPerUur = [];
+    for (let i = 0; i < h.time.length; i++) {
+        let totaal = 0;
+        soorten.forEach(soort => {
+            if (h[soort] && h[soort][i] !== null && h[soort][i] !== undefined) {
+                totaal += h[soort][i];
+            }
+        });
+        totalenPerUur.push({
+            tijdISO: h.time[i],
+            totaal: Math.round(totaal * 10) / 10,
+        });
+    }
+    return totalenPerUur;
+}
+
+function vindPollenVoorTijd(pollenPerUur, isoTijd) {
+    const doel = new Date(isoTijd).getTime();
+    let dichtstbij = pollenPerUur[0];
+    let kleinsteVerschil = Infinity;
+
+    pollenPerUur.forEach(punt => {
+        const verschil = Math.abs(new Date(punt.tijdISO).getTime() - doel);
+        if (verschil < kleinsteVerschil) {
+            kleinsteVerschil = verschil;
+            dichtstbij = punt;
+        }
+    });
+
+    return dichtstbij ? dichtstbij.totaal : null;
+}
+
+function vindPollenVoorDag(pollenPerUur, datumISO) {
+    const dagDatum = datumISO.split("T")[0];
+    const punten = pollenPerUur.filter(p => p.tijdISO.split("T")[0] === dagDatum);
+    if (punten.length === 0) return null;
+
+    // Gebruik het hoogste punt van de dag als representatief dagniveau
+    const hoogste = Math.max(...punten.map(p => p.totaal));
+    return hoogste;
+}
+
 // ─── Locatie zoeken (geocoding) ─────────────────────────────────────────
 
 async function zoekLocaties(zoekterm) {
@@ -118,14 +195,31 @@ function veranderLocatie(nieuweLocatie) {
 
 function parseHuidig(data) {
     const c = data.current;
-    const [beschrijving, emoji] = weercodeInfo(c.weather_code);
+    const h = data.hourly;
+    const nu = new Date();
+
+    // Zoek het hourly-datapunt dat het dichtst bij het huidige moment ligt.
+    // De "current" data van de API kan soms een kwartier verlopen zijn,
+    // het hourly-overzicht is net zo vers maar net iets directer te matchen.
+    let dichtstbijIndex = 0;
+    let kleinsteVerschil = Infinity;
+    for (let i = 0; i < h.time.length; i++) {
+        const verschil = Math.abs(new Date(h.time[i]).getTime() - nu.getTime());
+        if (verschil < kleinsteVerschil) {
+            kleinsteVerschil = verschil;
+            dichtstbijIndex = i;
+        }
+    }
+
+    const weercode = h.weather_code[dichtstbijIndex];
+    const [beschrijving, emoji] = weercodeInfo(weercode);
 
     return {
-        tijd: naarDatumTijdString(c.time),
+        tijd: naarDatumTijdString(nu.toISOString()),
         temperatuur: Math.round(c.temperature_2m * 10) / 10,
         gevoelstemperatuur: Math.round(c.apparent_temperature * 10) / 10,
-        regen: Math.round(c.rain * 10) / 10,
-        buien: Math.round(c.showers * 10) / 10,
+        regen: Math.round(h.rain[dichtstbijIndex] * 10) / 10,
+        buien: Math.round(h.showers[dichtstbijIndex] * 10) / 10,
         beschrijving,
         emoji,
     };
@@ -240,6 +334,11 @@ function toonHuidig(huidig) {
     document.getElementById("huidig-buien").textContent = `${huidig.buien} mm`;
 }
 
+function toonPollenHuidig(pollenTotaal) {
+    const niveau = pollenNiveau(pollenTotaal);
+    document.getElementById("huidig-pollen").textContent = `${niveau.emoji} ${niveau.label}`;
+}
+
 function toonUurlijks(uurLijst) {
     const container = document.getElementById("uur-rij");
     container.innerHTML = "";
@@ -286,6 +385,14 @@ function toonDagOverlay(dag, alleUren) {
     document.getElementById("overlay-zonsopgang").textContent = dag.zonsopgang;
     document.getElementById("overlay-zonsondergang").textContent = dag.zonsondergang;
     document.getElementById("overlay-regen").textContent = `${dag.regenSom} mm`;
+
+    if (huidigePollenPerUur) {
+        const pollenVoorDag = vindPollenVoorDag(huidigePollenPerUur, dag.datumISO);
+        const niveau = pollenNiveau(pollenVoorDag);
+        document.getElementById("overlay-pollen").textContent = `${niveau.emoji} ${niveau.label}`;
+    } else {
+        document.getElementById("overlay-pollen").textContent = "Onbekend";
+    }
 
     // Filter de uren die bij deze dag horen (zelfde datum, voor de "T")
     const dagDatum = dag.datumISO.split("T")[0];
@@ -370,6 +477,21 @@ async function laadWeerData() {
         toonHuidig(huidig);
         toonUurlijks(uurlijks);
         toonDagelijks(dagelijks, alleUren);
+
+        // Pollen apart ophalen — als dit faalt laten we de rest van de app
+        // gewoon werken, pollen is een "nice to have", geen kernfunctie
+        try {
+            const pollenData = await haalPollenOp();
+            const pollenPerUur = parsePollenPerUur(pollenData);
+            huidigePollenPerUur = pollenPerUur;
+
+            const nu = new Date().toISOString();
+            const pollenNu = vindPollenVoorTijd(pollenPerUur, nu);
+            toonPollenHuidig(pollenNu);
+        } catch (pollenFout) {
+            console.error("Kon pollendata niet ophalen:", pollenFout);
+            huidigePollenPerUur = null;
+        }
     } catch (fout) {
         console.error("Kon weerdata niet ophalen:", fout);
         document.getElementById("huidig-beschrijving").textContent = "Kon weer niet laden";
