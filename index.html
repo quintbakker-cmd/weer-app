@@ -9,12 +9,13 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="icoon-192.png">
     <link rel="apple-touch-icon" href="icoon-192.png">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 </head>
 <body>
 
     <canvas id="golven-achtergrond"></canvas>
 
-    <div class="versie-label">V11</div>
+    <div class="versie-label">V17</div>
 
     <main class="container">
 
@@ -63,6 +64,21 @@
                 <div class="uur-rij" id="uur-rij">
                     <!-- wordt gevuld door JavaScript -->
                 </div>
+            </section>
+
+            <!-- Buienradar -->
+            <section class="radar">
+                <h2 class="sectie-titel">Buienradar</h2>
+                <div class="radar-kaart-wrapper">
+                    <div id="radar-kaart"></div>
+                    <div class="radar-bediening">
+                        <button id="radar-afspelen" class="radar-knop">▶</button>
+                        <span class="radar-tijd" id="radar-tijd">--:--</span>
+                    </div>
+                </div>
+                <input type="range" id="radar-schuif" class="radar-schuif" min="0" max="10" value="0" step="1">
+                <p class="radar-melding" id="radar-melding" style="display: none;"></p>
+                <p class="radar-credit">Weather data by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
             </section>
 
             <!-- 7-daagse voorspelling -->
@@ -134,6 +150,7 @@
         </div>
     </div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="script.js"></script>
     <script>
         if ("serviceWorker" in navigator) {

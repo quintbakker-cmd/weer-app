@@ -189,6 +189,21 @@ function veranderLocatie(nieuweLocatie) {
     localStorage.setItem("weerapp-locatie", JSON.stringify(nieuweLocatie));
     document.getElementById("locatie-naam").textContent = nieuweLocatie.naam;
     laadWeerData();
+
+    // Radar-kaart en het markertje mee verplaatsen naar de nieuwe locatie
+    if (radarKaart) {
+        radarKaart.setView([nieuweLocatie.latitude, nieuweLocatie.longitude], 8);
+    }
+    if (radarMarker) {
+        radarMarker.setLatLng([nieuweLocatie.latitude, nieuweLocatie.longitude]);
+    }
+
+    // Radar-frames ook opnieuw ophalen — niet omdat de tegels zelf
+    // locatie-afhankelijk zijn (RainViewer's tegels zijn wereldwijd dezelfde
+    // set), maar om altijd de meest actuele frames/nowcast-status te tonen
+    if (radarKaart) {
+        haalRadarFramesOp();
+    }
 }
 
 // ─── Data verwerken naar nette objecten ───────────────────────────────────
@@ -572,6 +587,140 @@ function opZoekInput(event) {
     }, 400);
 }
 
+// ─── Buienradar (RainViewer) ────────────────────────────────────────────
+
+let radarKaart = null;
+let radarMarker = null;
+let radarFrames = [];       // gecombineerde lijst: verleden + nu + voorspelling
+let radarHuidigNuIndex = 0; // index van het "nu" frame, scheidslijn verleden/toekomst
+let radarHuidigeIndex = 0;
+let radarLaag = null;
+let radarAnimatieTimer = null;
+let radarSpeelt = false;
+let radarHost = "";
+
+const RADAR_TILE_GROOTTE = 256;
+const RADAR_KLEURSCHEMA = 4; // Universal Blue, een rustig blauw kleurenschema
+const RADAR_SMOOTH = 1;
+const RADAR_SNOW = 1;
+
+function initRadarKaart() {
+    radarKaart = L.map("radar-kaart", {
+        zoomControl: false,
+        attributionControl: false,
+        maxZoom: 18,
+    }).setView([huidigeLocatie.latitude, huidigeLocatie.longitude], 8);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 18,
+    }).addTo(radarKaart);
+
+    // Klein markertje op de gekozen locatie, zodat je precies ziet waar je naar kijkt
+    radarMarker = L.circleMarker([huidigeLocatie.latitude, huidigeLocatie.longitude], {
+        radius: 6,
+        color: "#0d2b40",
+        fillColor: "#ffffff",
+        fillOpacity: 1,
+        weight: 2,
+    }).addTo(radarKaart);
+
+    haalRadarFramesOp();
+}
+
+async function haalRadarFramesOp() {
+    try {
+        const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
+        const data = await response.json();
+
+        radarHost = data.host;
+
+        // Combineer verleden (gemeten) en nowcast (voorspeld, meestal 30-60 min vooruit)
+        const verleden = data.radar.past || [];
+        const toekomst = data.radar.nowcast || [];
+        radarFrames = [...verleden, ...toekomst];
+        radarHuidigNuIndex = verleden.length - 1; // laatste "echte" meting = "nu"
+        radarHuidigeIndex = radarHuidigNuIndex;
+
+        const schuif = document.getElementById("radar-schuif");
+        schuif.max = radarFrames.length - 1;
+        schuif.value = radarHuidigeIndex;
+
+        const meldingEl = document.getElementById("radar-melding");
+        if (toekomst.length === 0) {
+            meldingEl.textContent = "Voorspelling niet beschikbaar — RainViewer toont alleen actuele/eerdere beelden";
+            meldingEl.style.display = "block";
+        } else {
+            meldingEl.style.display = "none";
+        }
+
+        toonRadarFrame(radarHuidigeIndex);
+    } catch (fout) {
+        console.error("Kon radarbeelden niet ophalen:", fout);
+        document.getElementById("radar-tijd").textContent = "Niet beschikbaar";
+    }
+}
+
+function toonRadarFrame(index) {
+    const frame = radarFrames[index];
+    if (!frame || !radarHost) return;
+
+    const tegelUrl = `${radarHost}${frame.path}/${RADAR_TILE_GROOTTE}/{z}/{x}/{y}/${RADAR_KLEURSCHEMA}/${RADAR_SMOOTH}_${RADAR_SNOW}.png`;
+
+    const nieuweLaag = L.tileLayer(tegelUrl, {
+        opacity: 0.75,
+        maxNativeZoom: 7,  // RainViewer's officiële limiet sinds hun API-transitie
+        maxZoom: 18,       // we rekken de tegels van niveau 7 uit tot ver daarboven
+    });
+    nieuweLaag.addTo(radarKaart);
+
+    // Pas de oude laag verwijderen zodra de nieuwe geladen is, dat voorkomt
+    // een flikkerend effect tijdens het wisselen van frames
+    nieuweLaag.once("load", () => {
+        if (radarLaag) {
+            radarKaart.removeLayer(radarLaag);
+        }
+        radarLaag = nieuweLaag;
+    });
+
+    const tijdstip = new Date(frame.time * 1000);
+    const isVoorspelling = index > radarHuidigNuIndex;
+    const tijdTekst = tijdstip.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
+
+    document.getElementById("radar-tijd").textContent =
+        (isVoorspelling ? "Voorspeld • " : "") + tijdTekst;
+
+    document.getElementById("radar-schuif").value = index;
+}
+
+function radarVolgendeFrame() {
+    if (radarFrames.length === 0) return;
+
+    radarHuidigeIndex += 1;
+    if (radarHuidigeIndex >= radarFrames.length) {
+        radarHuidigeIndex = 0; // begin opnieuw vanaf het oudste verleden-beeld
+    }
+    toonRadarFrame(radarHuidigeIndex);
+}
+
+function radarNaarFrame(index) {
+    radarHuidigeIndex = Number(index);
+    toonRadarFrame(radarHuidigeIndex);
+}
+
+function radarAnimatieStartStop() {
+    const knop = document.getElementById("radar-afspelen");
+
+    if (radarSpeelt) {
+        clearInterval(radarAnimatieTimer);
+        radarSpeelt = false;
+        knop.textContent = "▶";
+    } else {
+        radarAnimatieTimer = setInterval(radarVolgendeFrame, 600);
+        radarSpeelt = true;
+        knop.textContent = "⏸";
+    }
+}
+
 // ─── Service worker updates ────────────────────────────────────────────────
 
 if ("serviceWorker" in navigator) {
@@ -608,6 +757,17 @@ function init() {
         }
     });
     document.getElementById("locatie-input").addEventListener("input", opZoekInput);
+
+    // Buienradar
+    initRadarKaart();
+    document.getElementById("radar-afspelen").addEventListener("click", radarAnimatieStartStop);
+    document.getElementById("radar-schuif").addEventListener("input", (event) => {
+        // Stop de animatie als de gebruiker zelf aan de schuif trekt
+        if (radarSpeelt) {
+            radarAnimatieStartStop();
+        }
+        radarNaarFrame(event.target.value);
+    });
 
     laadWeerData();
 }
