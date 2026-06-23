@@ -24,7 +24,7 @@ from pyproj import Proj
 
 # ─── Instellingen ──────────────────────────────────────────────────────────
 
-API_KEY  = "eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6ImVlNDFjMWI0MjlkODQ2MThiNWI4ZDViZDAyMTM2YTM3IiwiaCI6Im11cm11cjEyOCJ9"
+API_KEY  = "eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjY0YmViYjlkMzA1NDQxOTViNTAyOTZjZTg0YmRhNjI3IiwiaCI6Im11cm11cjEyOCJ9"
 BASE_URL = "https://api.dataplatform.knmi.nl/open-data/v1"
 DATASET  = "radar_forecast"
 VERSION  = "2.0"
