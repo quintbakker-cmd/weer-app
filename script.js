@@ -7,6 +7,8 @@ const STANDAARD_LOCATIE = {
     timezone: "Europe/Amsterdam",
 };
 
+const RADAR_API_URL = "https://weer-app-32ch.onrender.com/radar";
+
 // Probeer een eerder opgeslagen locatie te laden, anders gebruik de standaard
 let huidigeLocatie = STANDAARD_LOCATIE;
 const opgeslagenLocatie = localStorage.getItem("weerapp-locatie");
@@ -52,9 +54,7 @@ const WEERCODES = {
 
 function weercodeInfo(code, isNacht = false) {
     const weercode = WEERCODES[code] || ["Onbekend", "❓", "🌙"];
-    const beschrijving = weercode[0];
-    const emoji = isNacht ? weercode[2] : weercode[1];
-    return [beschrijving, emoji];
+    return [weercode[0], isNacht ? weercode[2] : weercode[1]];
 }
 
 // ─── Tijd helpers ──────────────────────────────────────────────────────────
@@ -88,9 +88,7 @@ async function haalWeerOp() {
     url.searchParams.set("current", "temperature_2m,apparent_temperature,rain,showers,weather_code");
 
     const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`API fout: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`API fout: ${response.status}`);
     return response.json();
 }
 
@@ -104,68 +102,40 @@ async function haalPollenOp() {
     url.searchParams.set("hourly", "alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,olive_pollen,ragweed_pollen");
 
     const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Pollen API fout: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Pollen API fout: ${response.status}`);
     return response.json();
 }
 
-// Grenzen gebaseerd op gangbare Europese pollen-indexen (grove benadering,
-// pollensoorten verschillen in gevoeligheid maar dit geeft een redelijk algemeen beeld)
 function pollenNiveau(totaal) {
-    if (totaal === null || totaal === undefined || Number.isNaN(totaal)) {
-        return { label: "Onbekend", emoji: "❓" };
-    }
-    if (totaal < 10)  return { label: "Laag", emoji: "🟢" };
-    if (totaal < 30)  return { label: "Matig", emoji: "🟡" };
-    if (totaal < 70)  return { label: "Hoog", emoji: "🟠" };
-    return { label: "Zeer hoog", emoji: "🔴" };
+    if (totaal === null || totaal === undefined || Number.isNaN(totaal)) return { label: "Onbekend", emoji: "❓" };
+    if (totaal < 10)  return { label: "Laag",      emoji: "🟢" };
+    if (totaal < 30)  return { label: "Matig",     emoji: "🟡" };
+    if (totaal < 70)  return { label: "Hoog",      emoji: "🟠" };
+    return                     { label: "Zeer hoog", emoji: "🔴" };
 }
 
 function parsePollenPerUur(pollenData) {
     const h = pollenData.hourly;
     const soorten = ["alder_pollen", "birch_pollen", "grass_pollen", "mugwort_pollen", "olive_pollen", "ragweed_pollen"];
-
-    const totalenPerUur = [];
-    for (let i = 0; i < h.time.length; i++) {
+    return h.time.map((t, i) => {
         let totaal = 0;
-        soorten.forEach(soort => {
-            if (h[soort] && h[soort][i] !== null && h[soort][i] !== undefined) {
-                totaal += h[soort][i];
-            }
-        });
-        totalenPerUur.push({
-            tijdISO: h.time[i],
-            totaal: Math.round(totaal * 10) / 10,
-        });
-    }
-    return totalenPerUur;
+        soorten.forEach(s => { if (h[s]?.[i] != null) totaal += h[s][i]; });
+        return { tijdISO: t, totaal: Math.round(totaal * 10) / 10 };
+    });
 }
 
 function vindPollenVoorTijd(pollenPerUur, isoTijd) {
     const doel = new Date(isoTijd).getTime();
-    let dichtstbij = pollenPerUur[0];
-    let kleinsteVerschil = Infinity;
-
-    pollenPerUur.forEach(punt => {
-        const verschil = Math.abs(new Date(punt.tijdISO).getTime() - doel);
-        if (verschil < kleinsteVerschil) {
-            kleinsteVerschil = verschil;
-            dichtstbij = punt;
-        }
-    });
-
-    return dichtstbij ? dichtstbij.totaal : null;
+    return pollenPerUur.reduce((best, punt) =>
+        Math.abs(new Date(punt.tijdISO).getTime() - doel) <
+        Math.abs(new Date(best.tijdISO).getTime() - doel) ? punt : best
+    ).totaal;
 }
 
 function vindPollenVoorDag(pollenPerUur, datumISO) {
-    const dagDatum = datumISO.split("T")[0];
-    const punten = pollenPerUur.filter(p => p.tijdISO.split("T")[0] === dagDatum);
-    if (punten.length === 0) return null;
-
-    // Gebruik het hoogste punt van de dag als representatief dagniveau
-    const hoogste = Math.max(...punten.map(p => p.totaal));
-    return hoogste;
+    const dag = datumISO.split("T")[0];
+    const punten = pollenPerUur.filter(p => p.tijdISO.startsWith(dag));
+    return punten.length ? Math.max(...punten.map(p => p.totaal)) : null;
 }
 
 // ─── Locatie zoeken (geocoding) ─────────────────────────────────────────
@@ -175,11 +145,8 @@ async function zoekLocaties(zoekterm) {
     url.searchParams.set("name", zoekterm);
     url.searchParams.set("count", 5);
     url.searchParams.set("language", "nl");
-
     const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Geocoding fout: ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`Geocoding fout: ${response.status}`);
     const data = await response.json();
     return data.results || [];
 }
@@ -190,20 +157,9 @@ function veranderLocatie(nieuweLocatie) {
     document.getElementById("locatie-naam").textContent = nieuweLocatie.naam;
     laadWeerData();
 
-    // Radar-kaart en het markertje mee verplaatsen naar de nieuwe locatie
-    if (radarKaart) {
-        radarKaart.setView([nieuweLocatie.latitude, nieuweLocatie.longitude], 8);
-    }
-    if (radarMarker) {
-        radarMarker.setLatLng([nieuweLocatie.latitude, nieuweLocatie.longitude]);
-    }
-
-    // Radar-frames ook opnieuw ophalen — niet omdat de tegels zelf
-    // locatie-afhankelijk zijn (RainViewer's tegels zijn wereldwijd dezelfde
-    // set), maar om altijd de meest actuele frames/nowcast-status te tonen
-    if (radarKaart) {
-        haalRadarFramesOp();
-    }
+    // Marker verplaatsen naar nieuwe locatie (alleen zichtbaar als die in NL ligt)
+    if (radarMarker) radarMarker.setLatLng([nieuweLocatie.latitude, nieuweLocatie.longitude]);
+    if (radarKaart) haalRadarFramesOp();
 }
 
 // ─── Data verwerken naar nette objecten ───────────────────────────────────
@@ -212,26 +168,14 @@ function parseHuidig(data) {
     const c = data.current;
     const h = data.hourly;
     const nu = new Date();
-
-    // We gebruiken hier bewust de "current" data van de API voor het
-    // weerbeeld (weather_code, regen, buien) — dit is de meest actuele
-    // live-waarneming. De hourly-voorspelling wordt namelijk pas per uur
-    // bijgewerkt en kan dus achterlopen bij snel veranderend weer
-    // (bijvoorbeeld als er plotseling onweer opsteekt).
     const [beschrijving, emoji] = weercodeInfo(c.weather_code);
 
-    // Neerslagkans bestaat alleen in de hourly-data, niet in current.
-    // We pakken hiervoor het dichtstbijzijnde uur.
     let dichtstbijIndex = 0;
     let kleinsteVerschil = Infinity;
-    for (let i = 0; i < h.time.length; i++) {
-        const verschil = Math.abs(new Date(h.time[i]).getTime() - nu.getTime());
-        if (verschil < kleinsteVerschil) {
-            kleinsteVerschil = verschil;
-            dichtstbijIndex = i;
-        }
-    }
-    const neerslagkans = h.precipitation_probability[dichtstbijIndex];
+    h.time.forEach((t, i) => {
+        const v = Math.abs(new Date(t).getTime() - nu.getTime());
+        if (v < kleinsteVerschil) { kleinsteVerschil = v; dichtstbijIndex = i; }
+    });
 
     return {
         tijd: naarDatumTijdString(nu.toISOString()),
@@ -239,109 +183,76 @@ function parseHuidig(data) {
         gevoelstemperatuur: Math.round(c.apparent_temperature * 10) / 10,
         regen: Math.round(c.rain * 10) / 10,
         buien: Math.round(c.showers * 10) / 10,
-        neerslagkans,
-        beschrijving,
-        emoji,
+        neerslagkans: h.precipitation_probability[dichtstbijIndex],
+        beschrijving, emoji,
+    };
+}
+
+function _bouwZontijden(data) {
+    const d = data.daily;
+    const zontijden = {};
+    for (let i = 0; i < d.time.length; i++) {
+        zontijden[d.time[i]] = {
+            opgang:    new Date(d.sunrise[i]).getTime(),
+            ondergang: new Date(d.sunset[i]).getTime(),
+        };
+    }
+    return zontijden;
+}
+
+function _bouwUurItem(h, i, zontijden) {
+    const dagDatum = h.time[i].split("T")[0];
+    const zon = zontijden[dagDatum];
+    const ts = new Date(h.time[i]).getTime();
+    const isNacht = zon ? (ts < zon.opgang || ts >= zon.ondergang) : false;
+    return {
+        tijdISO:            h.time[i],
+        tijd:               naarUurString(h.time[i]),
+        temperatuur:        Math.round(h.temperature_2m[i] * 10) / 10,
+        gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
+        regen:              Math.round(h.rain[i] * 10) / 10,
+        buien:              Math.round(h.showers[i] * 10) / 10,
+        luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
+        bewolking:          Math.round(h.cloud_cover[i]),
+        weercode:           h.weather_code[i],
+        neerslagkans:       h.precipitation_probability[i],
+        isNacht,
     };
 }
 
 function parseUurlijks(data) {
     const h = data.hourly;
-    const d = data.daily;
     const nu = new Date();
-
-    // Bouw een snelle opzoektabel: datum-string → { opgang, ondergang } als timestamps
-    const zontijden = {};
-    for (let i = 0; i < d.time.length; i++) {
-        zontijden[d.time[i]] = {
-            opgang:     new Date(d.sunrise[i]).getTime(),
-            ondergang:  new Date(d.sunset[i]).getTime(),
-        };
-    }
-
-    const uurLijst = [];
+    const zontijden = _bouwZontijden(data);
+    const lijst = [];
     for (let i = 0; i < h.time.length; i++) {
-        const tijdstip = new Date(h.time[i]);
-        if (tijdstip < nu) continue;
-
-        const dagDatum = h.time[i].split("T")[0];
-        const zon = zontijden[dagDatum];
-        const ts = tijdstip.getTime();
-        const isNacht = zon ? (ts < zon.opgang || ts >= zon.ondergang) : false;
-
-        uurLijst.push({
-            tijd:               naarUurString(h.time[i]),
-            temperatuur:        Math.round(h.temperature_2m[i] * 10) / 10,
-            gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
-            regen:              Math.round(h.rain[i] * 10) / 10,
-            buien:              Math.round(h.showers[i] * 10) / 10,
-            luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
-            bewolking:          Math.round(h.cloud_cover[i]),
-            weercode:           h.weather_code[i],
-            neerslagkans:       h.precipitation_probability[i],
-            isNacht,
-        });
+        if (new Date(h.time[i]) < nu) continue;
+        lijst.push(_bouwUurItem(h, i, zontijden));
     }
-    return uurLijst;
+    return lijst;
 }
 
 function parseAlleUren(data) {
     const h = data.hourly;
-    const d = data.daily;
-
-    // Zelfde opzoektabel als hierboven
-    const zontijden = {};
-    for (let i = 0; i < d.time.length; i++) {
-        zontijden[d.time[i]] = {
-            opgang:     new Date(d.sunrise[i]).getTime(),
-            ondergang:  new Date(d.sunset[i]).getTime(),
-        };
-    }
-
-    const uurLijst = [];
-    for (let i = 0; i < h.time.length; i++) {
-        const tijdstip = new Date(h.time[i]);
-        const dagDatum = h.time[i].split("T")[0];
-        const zon = zontijden[dagDatum];
-        const ts = tijdstip.getTime();
-        const isNacht = zon ? (ts < zon.opgang || ts >= zon.ondergang) : false;
-
-        uurLijst.push({
-            tijdISO:            h.time[i],
-            tijd:               naarUurString(h.time[i]),
-            temperatuur:        Math.round(h.temperature_2m[i] * 10) / 10,
-            gevoelstemperatuur: Math.round(h.apparent_temperature[i] * 10) / 10,
-            regen:              Math.round(h.rain[i] * 10) / 10,
-            buien:              Math.round(h.showers[i] * 10) / 10,
-            luchtvochtigheid:   Math.round(h.relative_humidity_2m[i]),
-            bewolking:          Math.round(h.cloud_cover[i]),
-            weercode:           h.weather_code[i],
-            neerslagkans:       h.precipitation_probability[i],
-            isNacht,
-        });
-    }
-    return uurLijst;
+    const zontijden = _bouwZontijden(data);
+    return h.time.map((_, i) => _bouwUurItem(h, i, zontijden));
 }
 
 function parseDagelijks(data) {
     const d = data.daily;
-
-    const dagLijst = [];
-    for (let i = 0; i < d.time.length; i++) {
+    return d.time.map((t, i) => {
         const [beschrijving, emoji] = weercodeInfo(d.weather_code[i]);
-        dagLijst.push({
-            datumISO: d.time[i],
-            datum: naarDagString(d.time[i]),
+        return {
+            datumISO: t,
+            datum: naarDagString(t),
             maxTemp: Math.round(d.temperature_2m_max[i] * 10) / 10,
             minTemp: Math.round(d.temperature_2m_min[i] * 10) / 10,
             regenSom: Math.round(d.rain_sum[i] * 10) / 10,
             zonsopgang: naarUurString(d.sunrise[i]),
             zonsondergang: naarUurString(d.sunset[i]),
-            beschrijving,
-            emoji,
-        });
-    }
-    return dagLijst;
+            beschrijving, emoji,
+        };
+    });
 }
 
 // ─── Data tonen in de pagina ───────────────────────────────────────────────
@@ -365,8 +276,6 @@ function toonPollenHuidig(pollenTotaal) {
 function toonUurlijks(uurLijst) {
     const container = document.getElementById("uur-rij");
     container.innerHTML = "";
-
-    // Toon alleen de eerste 24 uur
     uurLijst.slice(0, 24).forEach(uur => {
         const [, emoji] = weercodeInfo(uur.weercode, uur.isNacht);
         const kaart = document.createElement("div");
@@ -384,7 +293,6 @@ function toonUurlijks(uurLijst) {
 function toonDagelijks(dagLijst, alleUren) {
     const container = document.getElementById("dag-lijst");
     container.innerHTML = "";
-
     dagLijst.forEach(dag => {
         const rij = document.createElement("div");
         rij.className = "dag-rij";
@@ -411,20 +319,15 @@ function toonDagOverlay(dag, alleUren) {
     document.getElementById("overlay-regen").textContent = `${dag.regenSom} mm`;
 
     if (huidigePollenPerUur) {
-        const pollenVoorDag = vindPollenVoorDag(huidigePollenPerUur, dag.datumISO);
-        const niveau = pollenNiveau(pollenVoorDag);
+        const niveau = pollenNiveau(vindPollenVoorDag(huidigePollenPerUur, dag.datumISO));
         document.getElementById("overlay-pollen").textContent = `${niveau.emoji} ${niveau.label}`;
     } else {
         document.getElementById("overlay-pollen").textContent = "Onbekend";
     }
 
-    // Filter de uren die bij deze dag horen (zelfde datum, voor de "T")
-    const dagDatum = dag.datumISO.split("T")[0];
-    const urenVanDeDag = alleUren.filter(uur => uur.tijdISO.split("T")[0] === dagDatum);
-
     const urenContainer = document.getElementById("overlay-uren");
     urenContainer.innerHTML = "";
-    urenVanDeDag.forEach(uur => {
+    alleUren.filter(u => u.tijdISO.startsWith(dag.datumISO)).forEach(uur => {
         const [, emoji] = weercodeInfo(uur.weercode, uur.isNacht);
         const kaart = document.createElement("div");
         kaart.className = "uur-kaart" + (uur.isNacht ? " uur-kaart-nacht" : "");
@@ -458,28 +361,16 @@ function startGolvenAnimatie() {
 
     function tekenGolven() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
         const golfBreedte = 120;
-        const lagen = [
-            { alpha: 0.35, offsetY: 0 },
-            { alpha: 0.2, offsetY: 40 },
-        ];
-
-        lagen.forEach(laag => {
+        [{ alpha: 0.35, offsetY: 0 }, { alpha: 0.2, offsetY: 40 }].forEach(laag => {
             ctx.strokeStyle = `rgba(255, 255, 255, ${laag.alpha})`;
             ctx.lineWidth = 1.8;
-
             let y = laag.offsetY;
             while (y < canvas.height + 60) {
                 ctx.beginPath();
                 for (let x = -golfBreedte; x <= canvas.width + golfBreedte; x += 4) {
-                    const fase = (x / golfBreedte) * Math.PI * 2;
-                    const gy = y + Math.sin(fase) * 18;
-                    if (x === -golfBreedte) {
-                        ctx.moveTo(x, gy);
-                    } else {
-                        ctx.lineTo(x, gy);
-                    }
+                    const gy = y + Math.sin((x / golfBreedte) * Math.PI * 2) * 18;
+                    x === -golfBreedte ? ctx.moveTo(x, gy) : ctx.lineTo(x, gy);
                 }
                 ctx.stroke();
                 y += 55;
@@ -491,28 +382,20 @@ function startGolvenAnimatie() {
     resize();
 }
 
+// ─── Weer laden ────────────────────────────────────────────────────────────
+
 async function laadWeerData() {
     try {
         const data = await haalWeerOp();
-        const huidig = parseHuidig(data);
-        const uurlijks = parseUurlijks(data);
-        const dagelijks = parseDagelijks(data);
-        const alleUren = parseAlleUren(data);
+        toonHuidig(parseHuidig(data));
+        toonUurlijks(parseUurlijks(data));
+        toonDagelijks(parseDagelijks(data), parseAlleUren(data));
 
-        toonHuidig(huidig);
-        toonUurlijks(uurlijks);
-        toonDagelijks(dagelijks, alleUren);
-
-        // Pollen apart ophalen — als dit faalt laten we de rest van de app
-        // gewoon werken, pollen is een "nice to have", geen kernfunctie
         try {
             const pollenData = await haalPollenOp();
             const pollenPerUur = parsePollenPerUur(pollenData);
             huidigePollenPerUur = pollenPerUur;
-
-            const nu = new Date().toISOString();
-            const pollenNu = vindPollenVoorTijd(pollenPerUur, nu);
-            toonPollenHuidig(pollenNu);
+            toonPollenHuidig(vindPollenVoorTijd(pollenPerUur, new Date().toISOString()));
         } catch (pollenFout) {
             console.error("Kon pollendata niet ophalen:", pollenFout);
             huidigePollenPerUur = null;
@@ -541,27 +424,20 @@ let zoekTimer = null;
 function opZoekInput(event) {
     const zoekterm = event.target.value.trim();
     clearTimeout(zoekTimer);
-
     if (zoekterm.length < 2) {
         document.getElementById("locatie-resultaten").innerHTML = "";
         return;
     }
-
-    // Wacht even na het typen voordat we daadwerkelijk zoeken (debounce),
-    // zodat we niet bij elke toetsaanslag een aanvraag versturen
     zoekTimer = setTimeout(async () => {
-        const resultatenContainer = document.getElementById("locatie-resultaten");
-        resultatenContainer.innerHTML = `<p class="locatie-melding">Zoeken...</p>`;
-
+        const container = document.getElementById("locatie-resultaten");
+        container.innerHTML = `<p class="locatie-melding">Zoeken...</p>`;
         try {
             const resultaten = await zoekLocaties(zoekterm);
-
             if (resultaten.length === 0) {
-                resultatenContainer.innerHTML = `<p class="locatie-melding">Geen plaatsen gevonden</p>`;
+                container.innerHTML = `<p class="locatie-melding">Geen plaatsen gevonden</p>`;
                 return;
             }
-
-            resultatenContainer.innerHTML = "";
+            container.innerHTML = "";
             resultaten.forEach(plaats => {
                 const knop = document.createElement("button");
                 knop.className = "locatie-resultaat";
@@ -578,44 +454,42 @@ function opZoekInput(event) {
                     });
                     verbergLocatieOverlay();
                 });
-                resultatenContainer.appendChild(knop);
+                container.appendChild(knop);
             });
         } catch (fout) {
             console.error("Kon locaties niet zoeken:", fout);
-            resultatenContainer.innerHTML = `<p class="locatie-melding">Zoeken mislukt</p>`;
+            container.innerHTML = `<p class="locatie-melding">Zoeken mislukt</p>`;
         }
     }, 400);
 }
 
-// ─── Buienradar (RainViewer) ────────────────────────────────────────────
+// ─── KNMI Buienradar ───────────────────────────────────────────────────────
 
-let radarKaart = null;
-let radarMarker = null;
-let radarFrames = [];       // gecombineerde lijst: verleden + nu + voorspelling
-let radarHuidigNuIndex = 0; // index van het "nu" frame, scheidslijn verleden/toekomst
-let radarHuidigeIndex = 0;
-let radarLaag = null;
-let radarAnimatieTimer = null;
-let radarSpeelt = false;
-let radarHost = "";
+// Geografische grenzen van het KNMI radarraster (benaderd rechthoekig voor Leaflet)
+const RADAR_BOUNDS = [[48.895, -0.473], [55.974, 10.856]];
 
-const RADAR_TILE_GROOTTE = 256;
-const RADAR_KLEURSCHEMA = 4; // Universal Blue, een rustig blauw kleurenschema
-const RADAR_SMOOTH = 1;
-const RADAR_SNOW = 1;
+let radarKaart    = null;
+let radarMarker   = null;
+let radarOverlay  = null;
+let radarFrames   = [];
+let radarIndex    = 0;
+let radarTimer    = null;
+let radarSpeelt   = false;
 
 function initRadarKaart() {
     radarKaart = L.map("radar-kaart", {
         zoomControl: false,
         attributionControl: false,
-        maxZoom: 18,
-    }).setView([huidigeLocatie.latitude, huidigeLocatie.longitude], 8);
+        minZoom: 7,
+        maxZoom: 11,
+        maxBounds: [[48.0, -1.5], [56.5, 12.0]], // Nederland + buurlanden
+        maxBoundsViscosity: 1.0, // kaart 'plakt' aan de rand, niet uitpannen
+    }).setView([52.3, 5.3], 7); // vaste startpositie: heel Nederland in beeld
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 18,
+        maxZoom: 11,
     }).addTo(radarKaart);
 
-    // Klein markertje op de gekozen locatie, zodat je precies ziet waar je naar kijkt
     radarMarker = L.circleMarker([huidigeLocatie.latitude, huidigeLocatie.longitude], {
         radius: 6,
         color: "#0d2b40",
@@ -628,96 +502,79 @@ function initRadarKaart() {
 }
 
 async function haalRadarFramesOp() {
+    const melding = document.getElementById("radar-melding");
+    melding.style.display = "block";
+    melding.textContent = "Radardata ophalen...";
+
+    if (radarTimer) clearInterval(radarTimer);
+    radarSpeelt = false;
+    document.getElementById("radar-afspelen").textContent = "▶";
+
     try {
-        const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-        const data = await response.json();
+        const r = await fetch(RADAR_API_URL);
+        if (!r.ok) throw new Error(`API fout ${r.status}`);
+        const data = await r.json();
+        if (data.error) throw new Error(data.error);
 
-        radarHost = data.host;
-
-        // Combineer verleden (gemeten) en nowcast (voorspeld, meestal 30-60 min vooruit)
-        const verleden = data.radar.past || [];
-        const toekomst = data.radar.nowcast || [];
-        radarFrames = [...verleden, ...toekomst];
-        radarHuidigNuIndex = verleden.length - 1; // laatste "echte" meting = "nu"
-        radarHuidigeIndex = radarHuidigNuIndex;
+        radarFrames = data.frames;
+        radarIndex  = 0;
 
         const schuif = document.getElementById("radar-schuif");
-        schuif.max = radarFrames.length - 1;
-        schuif.value = radarHuidigeIndex;
+        schuif.max   = radarFrames.length - 1;
+        schuif.value = 0;
 
-        const meldingEl = document.getElementById("radar-melding");
-        if (toekomst.length === 0) {
-            meldingEl.textContent = "Voorspelling niet beschikbaar — RainViewer toont alleen actuele/eerdere beelden";
-            meldingEl.style.display = "block";
-        } else {
-            meldingEl.style.display = "none";
-        }
-
-        toonRadarFrame(radarHuidigeIndex);
+        toonRadarFrame(0);
+        melding.style.display = "none";
+        radarAnimatieStartStop(); // automatisch starten
     } catch (fout) {
-        console.error("Kon radarbeelden niet ophalen:", fout);
-        document.getElementById("radar-tijd").textContent = "Niet beschikbaar";
+        melding.textContent = "Kon radardata niet laden. Probeer het later opnieuw.";
+        console.error("Radar fout:", fout);
     }
 }
 
 function toonRadarFrame(index) {
+    if (!radarFrames.length) return;
+    radarIndex = index;
     const frame = radarFrames[index];
-    if (!frame || !radarHost) return;
 
-    const tegelUrl = `${radarHost}${frame.path}/${RADAR_TILE_GROOTTE}/{z}/{x}/{y}/${RADAR_KLEURSCHEMA}/${RADAR_SMOOTH}_${RADAR_SNOW}.png`;
+    if (radarOverlay) radarKaart.removeLayer(radarOverlay);
+    radarOverlay = L.imageOverlay(
+        "data:image/png;base64," + frame.png_b64,
+        RADAR_BOUNDS,
+        { opacity: 0.8, interactive: false }
+    ).addTo(radarKaart);
 
-    const nieuweLaag = L.tileLayer(tegelUrl, {
-        opacity: 0.75,
-        maxNativeZoom: 7,  // RainViewer's officiële limiet sinds hun API-transitie
-        maxZoom: 18,       // we rekken de tegels van niveau 7 uit tot ver daarboven
-    });
-    nieuweLaag.addTo(radarKaart);
+    // Marker bovenop de overlay houden
+    if (radarMarker) radarMarker.bringToFront();
 
-    // Pas de oude laag verwijderen zodra de nieuwe geladen is, dat voorkomt
-    // een flikkerend effect tijdens het wisselen van frames
-    nieuweLaag.once("load", () => {
-        if (radarLaag) {
-            radarKaart.removeLayer(radarLaag);
-        }
-        radarLaag = nieuweLaag;
-    });
-
-    const tijdstip = new Date(frame.time * 1000);
-    const isVoorspelling = index > radarHuidigNuIndex;
-    const tijdTekst = tijdstip.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" });
-
-    document.getElementById("radar-tijd").textContent =
-        (isVoorspelling ? "Voorspeld • " : "") + tijdTekst;
-
+    document.getElementById("radar-tijd").textContent = frame.tijd;
     document.getElementById("radar-schuif").value = index;
-}
-
-function radarVolgendeFrame() {
-    if (radarFrames.length === 0) return;
-
-    radarHuidigeIndex += 1;
-    if (radarHuidigeIndex >= radarFrames.length) {
-        radarHuidigeIndex = 0; // begin opnieuw vanaf het oudste verleden-beeld
-    }
-    toonRadarFrame(radarHuidigeIndex);
-}
-
-function radarNaarFrame(index) {
-    radarHuidigeIndex = Number(index);
-    toonRadarFrame(radarHuidigeIndex);
 }
 
 function radarAnimatieStartStop() {
     const knop = document.getElementById("radar-afspelen");
-
     if (radarSpeelt) {
-        clearInterval(radarAnimatieTimer);
+        clearInterval(radarTimer);
         radarSpeelt = false;
         knop.textContent = "▶";
     } else {
-        radarAnimatieTimer = setInterval(radarVolgendeFrame, 600);
         radarSpeelt = true;
         knop.textContent = "⏸";
+        radarTimer = setInterval(() => {
+            const volgend = (radarIndex + 1) % radarFrames.length;
+            if (volgend === 0) {
+                // Korte pauze aan het einde van de laps
+                clearInterval(radarTimer);
+                setTimeout(() => {
+                    toonRadarFrame(0);
+                    radarTimer = setInterval(() => {
+                        toonRadarFrame((radarIndex + 1) % radarFrames.length);
+                    }, 400);
+                }, 1200);
+            } else {
+                toonRadarFrame(volgend);
+            }
+        }, 400);
     }
 }
 
@@ -737,38 +594,27 @@ if ("serviceWorker" in navigator) {
 function init() {
     startGolvenAnimatie();
 
-    // Toon de opgeslagen of standaard locatie-naam direct
     document.getElementById("locatie-naam").textContent = huidigeLocatie.naam;
 
-    // Sluit-knop en klik-buiten-overlay om dag-overlay te sluiten
     document.getElementById("overlay-sluiten").addEventListener("click", verbergDagOverlay);
-    document.getElementById("dag-overlay").addEventListener("click", (event) => {
-        if (event.target.id === "dag-overlay") {
-            verbergDagOverlay();
-        }
+    document.getElementById("dag-overlay").addEventListener("click", (e) => {
+        if (e.target.id === "dag-overlay") verbergDagOverlay();
     });
 
-    // Locatie-overlay bediening
     document.getElementById("locatie-knop").addEventListener("click", toonLocatieOverlay);
     document.getElementById("locatie-overlay-sluiten").addEventListener("click", verbergLocatieOverlay);
-    document.getElementById("locatie-overlay").addEventListener("click", (event) => {
-        if (event.target.id === "locatie-overlay") {
-            verbergLocatieOverlay();
-        }
+    document.getElementById("locatie-overlay").addEventListener("click", (e) => {
+        if (e.target.id === "locatie-overlay") verbergLocatieOverlay();
     });
     document.getElementById("locatie-input").addEventListener("input", opZoekInput);
 
-    // Buienradar
-    initRadarKaart();
     document.getElementById("radar-afspelen").addEventListener("click", radarAnimatieStartStop);
-    document.getElementById("radar-schuif").addEventListener("input", (event) => {
-        // Stop de animatie als de gebruiker zelf aan de schuif trekt
-        if (radarSpeelt) {
-            radarAnimatieStartStop();
-        }
-        radarNaarFrame(event.target.value);
+    document.getElementById("radar-schuif").addEventListener("input", (e) => {
+        if (radarSpeelt) radarAnimatieStartStop();
+        toonRadarFrame(parseInt(e.target.value));
     });
 
+    initRadarKaart();
     laadWeerData();
 }
 

@@ -15,7 +15,7 @@
 
     <canvas id="golven-achtergrond"></canvas>
 
-    <div class="versie-label">V12</div>
+    <div class="versie-label">V13</div>
 
     <main class="container">
 
@@ -55,15 +55,13 @@
             </div>
         </section>
 
-        <!-- Rechter kolom: uurlijks + 7-daags -->
+        <!-- Rechter kolom: uurlijks + buienradar + 7-daags -->
         <div class="rechts-kolom">
 
             <!-- Uurlijkse voorspelling -->
             <section class="uurlijks">
                 <h2 class="sectie-titel">Komende uren</h2>
-                <div class="uur-rij" id="uur-rij">
-                    <!-- wordt gevuld door JavaScript -->
-                </div>
+                <div class="uur-rij" id="uur-rij"></div>
             </section>
 
             <!-- Buienradar -->
@@ -76,17 +74,15 @@
                         <span class="radar-tijd" id="radar-tijd">--:--</span>
                     </div>
                 </div>
-                <input type="range" id="radar-schuif" class="radar-schuif" min="0" max="10" value="0" step="1">
+                <input type="range" id="radar-schuif" class="radar-schuif" min="0" max="24" value="0" step="1">
                 <p class="radar-melding" id="radar-melding" style="display: none;"></p>
-                <p class="radar-credit">Weather data by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
+                <p class="radar-credit">Radardata van <a href="https://www.knmi.nl" target="_blank" rel="noopener">KNMI</a></p>
             </section>
 
             <!-- 7-daagse voorspelling -->
             <section class="dagelijks">
                 <h2 class="sectie-titel">7-daagse voorspelling</h2>
-                <div class="dag-lijst" id="dag-lijst">
-                    <!-- wordt gevuld door JavaScript -->
-                </div>
+                <div class="dag-lijst" id="dag-lijst"></div>
             </section>
 
         </div>
@@ -97,18 +93,10 @@
     <div class="overlay" id="locatie-overlay">
         <div class="overlay-kaart locatie-overlay-kaart">
             <button class="overlay-sluiten" id="locatie-overlay-sluiten">✕</button>
-
             <h3 class="overlay-subtitel" style="margin-top: 0;">Locatie wijzigen</h3>
-            <input
-                type="text"
-                id="locatie-input"
-                class="locatie-input"
-                placeholder="Typ een plaatsnaam, bijv. Utrecht"
-                autocomplete="off"
-            >
-            <div class="locatie-resultaten" id="locatie-resultaten">
-                <!-- wordt gevuld door JavaScript -->
-            </div>
+            <input type="text" id="locatie-input" class="locatie-input"
+                placeholder="Typ een plaatsnaam, bijv. Utrecht" autocomplete="off">
+            <div class="locatie-resultaten" id="locatie-resultaten"></div>
         </div>
     </div>
 
@@ -116,14 +104,12 @@
     <div class="overlay" id="dag-overlay">
         <div class="overlay-kaart">
             <button class="overlay-sluiten" id="overlay-sluiten">✕</button>
-
             <p class="overlay-datum" id="overlay-datum">--</p>
             <div class="overlay-hoofd">
                 <span class="overlay-emoji" id="overlay-emoji">--</span>
                 <span class="overlay-temp" id="overlay-temp">--°</span>
             </div>
             <p class="overlay-beschrijving" id="overlay-beschrijving">--</p>
-
             <div class="overlay-details">
                 <div class="detail">
                     <span class="detail-label">Zonsopgang</span>
@@ -142,11 +128,8 @@
                     <span class="detail-waarde" id="overlay-pollen">--</span>
                 </div>
             </div>
-
             <h3 class="overlay-subtitel">Uurlijks overzicht</h3>
-            <div class="overlay-uren" id="overlay-uren">
-                <!-- wordt gevuld door JavaScript -->
-            </div>
+            <div class="overlay-uren" id="overlay-uren"></div>
         </div>
     </div>
 
