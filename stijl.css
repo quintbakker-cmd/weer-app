@@ -531,6 +531,22 @@ body {
     box-shadow: 0 2px 8px rgba(13, 43, 64, 0.15);
 }
 
+.radar-legenda-toggle {
+    border: none;
+    background: none;
+    font-size: 9px;
+    font-weight: 600;
+    color: #0d2b40;
+    cursor: pointer;
+    padding: 0;
+    width: 100%;
+    text-align: left;
+}
+
+.radar-legenda-inhoud {
+    margin-top: 4px;
+}
+
 .radar-legenda-rij {
     display: flex;
     align-items: center;
