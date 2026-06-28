@@ -27,7 +27,7 @@ from PIL import Image
 app = Flask(__name__)
 CORS(app)  # Staat verzoeken toe van GitHub Pages
 
-API_KEY  = "eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjY0YmViYjlkMzA1NDQxOTViNTAyOTZjZTg0YmRhNjI3IiwiaCI6Im11cm11cjEyOCJ9"
+API_KEY  = "eyJvcmciOiI1ZTU1NGUxOTI3NGE5NjAwMDEyYTNlYjEiLCJpZCI6IjYwNDRkM2ZhOWE1OTQyYTBhNjk0MmVlMjFmNGM4OGU1IiwiaCI6Im11cm11cjEyOCJ9"
 BASE_URL = "https://api.dataplatform.knmi.nl/open-data/v1"
 DATASET  = "radar_forecast"
 VERSION  = "2.0"
@@ -68,26 +68,32 @@ def _interpoleer_kleur(waarde):
 
 
 def _data_naar_png_bytes(data):
-    """Zet een 2D numpy-array (mm/5min) om naar een transparante PNG als bytes."""
+    """Zet een 2D numpy-array (mm/5min) om naar een transparante PNG als bytes.
+    Schaalt de afbeelding terug naar 350x383 pixels om geheugen te sparen."""
     hoogte, breedte = data.shape
-    rgba = np.zeros((hoogte, breedte, 4), dtype=np.uint8)
 
-    # Vectoriseer de kleurberekening per drempellaag
+    # Downscale factor: origineel 700x765 → 350x383 (factor 2)
+    schaal = 2
+    kleine_data = data[::schaal, ::schaal]
+    kleine_h, kleine_b = kleine_data.shape
+
+    rgba = np.zeros((kleine_h, kleine_b, 4), dtype=np.uint8)
+
     for i in range(1, len(KLEUR_STAPPEN)):
         v0, k0 = KLEUR_STAPPEN[i - 1]
         v1, k1 = KLEUR_STAPPEN[i]
-        masker = (data > v0) & (data <= v1)
+        masker = (kleine_data > v0) & (kleine_data <= v1)
         if not masker.any():
             continue
-        t = np.where(masker, (data - v0) / (v1 - v0), 0.0)
+        t = np.where(masker, (kleine_data - v0) / (v1 - v0), 0.0)
         for kanaal in range(4):
             rgba[:, :, kanaal] = np.where(
                 masker,
                 np.clip(k0[kanaal] + t * (k1[kanaal] - k0[kanaal]), 0, 255).astype(np.uint8),
                 rgba[:, :, kanaal],
             )
-    # Alles boven de hoogste drempel
-    masker = data > KLEUR_STAPPEN[-1][0]
+
+    masker = kleine_data > KLEUR_STAPPEN[-1][0]
     if masker.any():
         for kanaal, waarde in enumerate(KLEUR_STAPPEN[-1][1]):
             rgba[:, :, kanaal] = np.where(masker, waarde, rgba[:, :, kanaal])
@@ -95,6 +101,7 @@ def _data_naar_png_bytes(data):
     img = Image.fromarray(rgba, "RGBA")
     buf = io.BytesIO()
     img.save(buf, format="PNG", optimize=True)
+    buf.seek(0)
     return buf.getvalue()
 
 
@@ -156,12 +163,16 @@ def _haal_frames_op():
             ruwe_data = grp["image_data"][:]
             neerslag = ruwe_data.astype(np.float32) * 0.01
             neerslag[ruwe_data >= 65534] = 0.0
+            del ruwe_data  # geheugen direct vrijgeven
 
             png_bytes = _data_naar_png_bytes(neerslag)
+            del neerslag   # geheugen direct vrijgeven
+
             frames.append({
                 "tijd": tijdstip_str,
                 "png_b64": base64.b64encode(png_bytes).decode("ascii"),
             })
+            del png_bytes
 
     return frames
 
