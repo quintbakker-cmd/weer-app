@@ -1,4 +1,4 @@
-const CACHE_NAAM = "weer-app-v19";
+const CACHE_NAAM = "weer-app-v20";
 const BESTANDEN_OM_TE_CACHEN = [
     "./",
     "./index.html",
