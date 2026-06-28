@@ -517,3 +517,31 @@ body {
         padding: 12px 14px;
     }
 }
+
+/* ─── Radar legenda ─────────────────────────────────────────────────────── */
+
+.radar-legenda {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: #0d2b40;
+    line-height: 1.4;
+    box-shadow: 0 2px 8px rgba(13, 43, 64, 0.15);
+}
+
+.radar-legenda-rij {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 2px 0;
+}
+
+.radar-legenda-rij span {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}

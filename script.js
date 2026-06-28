@@ -480,15 +480,30 @@ function initRadarKaart() {
     radarKaart = L.map("radar-kaart", {
         zoomControl: false,
         attributionControl: false,
-        minZoom: 7,
+        minZoom: 4,
         maxZoom: 11,
-        maxBounds: [[48.0, -1.5], [56.5, 12.0]], // Nederland + buurlanden
-        maxBoundsViscosity: 1.0, // kaart 'plakt' aan de rand, niet uitpannen
-    }).setView([52.3, 5.3], 7); // vaste startpositie: heel Nederland in beeld
+    }).setView([52.3, 5.3], 7); // start op Nederland
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom: 11,
     }).addTo(radarKaart);
+
+    // Legenda
+    const legenda = L.control({ position: "bottomright" });
+    legenda.onAdd = function () {
+        const div = L.DomUtil.create("div", "radar-legenda");
+        div.innerHTML = `
+            <div class="radar-legenda-rij"><span style="background:rgba(180,230,255,0.85)"></span> &lt;0.01 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(150,220,255,0.9)"></span> 0.01–0.10 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(50,150,255,0.9)"></span> 0.10–0.50 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(0,230,100,0.9)"></span> 0.50–1.00 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(255,255,0,0.9)"></span> 1.00–2.00 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(255,128,0,0.95)"></span> 2.00–5.00 mm/5min</div>
+            <div class="radar-legenda-rij"><span style="background:rgba(255,0,0,1)"></span> &gt;5.00 mm/5min</div>
+        `;
+        return div;
+    };
+    legenda.addTo(radarKaart);
 
     radarMarker = L.circleMarker([huidigeLocatie.latitude, huidigeLocatie.longitude], {
         radius: 6,
