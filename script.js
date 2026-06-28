@@ -495,13 +495,13 @@ function initRadarKaart() {
         div.innerHTML = `
             <button class="radar-legenda-toggle" id="legenda-toggle">▲ Legenda</button>
             <div class="radar-legenda-inhoud" id="legenda-inhoud">
-                <div class="radar-legenda-rij"><span style="background:rgba(180,230,255,0.85)"></span> &lt;0.01 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(150,220,255,0.9)"></span> 0.01–0.10 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(50,150,255,0.9)"></span> 0.10–0.50 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(0,230,100,0.9)"></span> 0.50–1.00 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(255,255,0,0.9)"></span> 1.00–2.00 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(255,128,0,0.95)"></span> 2.00–5.00 mm/5min</div>
-                <div class="radar-legenda-rij"><span style="background:rgba(255,0,0,1)"></span> &gt;5.00 mm/5min</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(180,230,255,0.85)"></span> &lt;0.01 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(150,220,255,0.9)"></span> 0.01–0.10 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(50,150,255,0.9)"></span> 0.10–0.50 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(0,230,100,0.9)"></span> 0.50–1.00 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(255,255,0,0.9)"></span> 1.00–2.00 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(255,128,0,0.95)"></span> 2.00–5.00 mm</div>
+                <div class="radar-legenda-rij"><span style="background:rgba(255,0,0,1)"></span> &gt;5.00 mm</div>
             </div>
         `;
         L.DomEvent.disableClickPropagation(div);
